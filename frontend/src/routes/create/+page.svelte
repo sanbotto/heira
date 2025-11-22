@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
   import { wallet } from '../../lib/stores/wallet';
   import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
   import { mainnet, sepolia } from 'viem/chains';
@@ -185,6 +186,9 @@
       );
 
       showSuccessToast(`Escrow created successfully at ${escrowAddress}`);
+      
+      // Navigate to the escrow detail page
+      await goto(`/escrows/${escrowAddress}`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create escrow';
       showErrorToast(errorMsg);
