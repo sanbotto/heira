@@ -1,0 +1,7 @@
+{
+  "name": "Heira",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "node"
+}
