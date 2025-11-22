@@ -47,10 +47,11 @@
 
   function formatBalance(balance: string, decimals: number): string {
     const num = parseFloat(balance) / Math.pow(10, decimals);
-    if (num < 0.01) {
-      return num.toExponential(2);
-    }
-    return num.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    // Format with exactly 5 decimal places, avoiding scientific notation
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: 5,
+      maximumFractionDigits: 5,
+    });
   }
 
   function getChainName(chainId: number): string {
