@@ -76,6 +76,7 @@
   class:error={type === 'error'}
   class:success={type === 'success'}
   class:info={type === 'info'}
+  role="alert"
   on:mouseenter={handleMouseEnter}
   on:mouseleave={handleMouseLeave}
 >
