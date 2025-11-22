@@ -110,4 +110,8 @@ npm run check
 
 ## License
 
-MIT
+This project is licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+You may use, modify, and distribute this software under the terms of the AGPL-3.0. See the LICENSE file for details.
+
+**TL;DR:** The AGPL-3.0 ensures that all changes and derivative works must also be licensed under AGPL-3.0, and that **attribution is preserved**. If you run a modified version as a network service, you must make the source code available to users. This code is provided **as-is**, without warranties.
