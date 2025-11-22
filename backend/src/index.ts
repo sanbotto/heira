@@ -10,8 +10,19 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const ENABLE_KEEPER = process.env.ENABLE_KEEPER === "true";
 
+// Trust proxy (for Cloudflare and other reverse proxies)
+app.set("trust proxy", true);
+
+// CORS configuration - allow Cloudflare domain
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || "*",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
