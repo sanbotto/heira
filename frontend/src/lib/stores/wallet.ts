@@ -30,8 +30,8 @@ function createWalletStore() {
 
   return {
     subscribe,
-    connect: async () => {
-      const state = await connectWallet();
+    connect: async (connectorId?: string) => {
+      const state = await connectWallet(connectorId);
       set(state);
     },
     disconnect: async () => {

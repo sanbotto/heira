@@ -298,28 +298,94 @@ body {
 
 .text-danger {
   color: var(--color-danger);
-  font-weight: 500;
+}
+
+.text-success {
+  color: var(--color-success);
 }
 
 .text-muted {
   color: var(--color-text-muted);
 }
 
-.text-center {
-  text-align: center;
+/* RainbowKit - Customizations to match theme switcher style */
+[data-rk] {
+  font-family: inherit;
 }
 
-/* Loading States */
-.loading {
-  text-align: center;
-  padding: 3rem;
-  color: var(--color-text-secondary);
-  font-size: 1.125rem;
+/* Container for RainbowKit buttons - side by side */
+.rk-buttons-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* Empty States */
-.empty-state {
-  text-align: center;
-  color: var(--color-text-muted);
-  padding: 2rem;
+/* Custom RainbowKit button style matching theme switcher */
+.rk-custom-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  font-weight: 500;
+  font-family: inherit;
+  height: fit-content;
+  min-height: auto;
+  max-height: none;
+  white-space: nowrap;
+}
+
+.rk-custom-button:hover {
+  background-color: var(--color-background-light);
+  border-color: var(--color-primary);
+}
+
+/* Chain icon styling */
+.rk-chain-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.rk-chain-icon img {
+  width: 20px;
+  height: 20px;
+}
+
+/* Avatar styling */
+.rk-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-background-light);
+}
+
+.rk-avatar img {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.rk-avatar-placeholder {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--color-primary);
+  opacity: 0.3;
 }

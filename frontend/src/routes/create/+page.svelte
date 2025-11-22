@@ -44,6 +44,12 @@
     showToast = true;
   }
 
+  function showToastMessage(message: string, type: 'error' | 'success' | 'info' = 'info') {
+    toastMessage = message;
+    toastType = type;
+    showToast = true;
+  }
+
   // Calculate total percentage from all rows
   $: totalPercentage = beneficiaryRows.reduce((sum, row) => sum + (row.percentage || 0), 0);
 
@@ -82,7 +88,10 @@
     }));
 
   async function handleCreateEscrow() {
-    if (!$wallet.address || !$wallet.chainId) {
+    // Use the wallet store which is synced with RainbowKit
+    // The store is updated via updateWalletStateFromAccount in RainbowKitApp
+    // Double-check by ensuring we have the required values
+    if (!$wallet.isConnected || !$wallet.address || !$wallet.chainId) {
       showErrorToast('Please connect your wallet first');
       return;
     }
@@ -98,6 +107,7 @@
     }
 
     creating = true;
+    showToastMessage('Preparing escrow creation...', 'info');
 
     try {
       // Use mainWallet as-is (can be ENS name or address), fallback to connected wallet if empty
@@ -144,6 +154,13 @@
         }
       });
 
+      // Ensure we have chainId before proceeding
+      if (!$wallet.chainId) {
+        throw new Error(
+          'Chain ID not available. Please ensure your wallet is connected to a supported network.'
+        );
+      }
+
       // Get factory address from environment based on current chain
       // Sepolia uses the same env var as Ethereum mainnet
       const factoryAddress = (
@@ -162,6 +179,8 @@
         );
       }
 
+      showToastMessage('Signing transaction to create escrow...', 'info');
+
       const escrowAddress = await createEscrow(
         factoryAddress,
         {
@@ -170,7 +189,10 @@
           beneficiaries: beneficiariesToUse,
           tokenConfigs,
         },
-        $wallet.chainId
+        $wallet.chainId as any,
+        (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+          showToastMessage(message, type);
+        }
       );
 
       showSuccessToast(`Escrow created successfully at ${escrowAddress}`);

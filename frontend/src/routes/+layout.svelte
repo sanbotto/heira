@@ -5,38 +5,43 @@
   import ThemeSwitcher from '$lib/components/ThemeSwitcher.svelte';
   import WalletConnect from '../components/WalletConnect.svelte';
   import { goto } from '$app/navigation';
-  import { initializeWallet } from '$lib/wallet';
+  import RainbowKitAppWrapper from '../components/RainbowKitAppWrapper.svelte';
+
+  import { syncRainbowKitWalletState } from '../lib/wallet-sync';
 
   onMount(() => {
     theme.init();
-    // Initialize wallet connection and restore if previously connected
-    initializeWallet();
+    // Sync RainbowKit wallet state
+    syncRainbowKitWalletState();
   });
 </script>
 
-<div class="app">
-  <header>
-    <nav>
-      <div class="nav-brand">
-        <a href="/" aria-label="Heira Home">
-          <h1 class="logo">Heira</h1>
-        </a>
-      </div>
-      <div class="nav-links">
-        <a href="/" class="nav-link">Dashboard</a>
-        <a href="/create" class="nav-link">Create Escrow</a>
-      </div>
-      <div class="nav-right">
-        <ThemeSwitcher />
-        <WalletConnect />
-      </div>
-    </nav>
-  </header>
+<RainbowKitAppWrapper>
+  <div class="app">
+    <header>
+      <nav>
+        <div class="nav-brand">
+          <a href="/" aria-label="Heira Home">
+            <h1 class="logo">Heira</h1>
+          </a>
+        </div>
+        <div class="nav-links">
+          <a href="/" class="nav-link">Dashboard</a>
+          <a href="/create" class="nav-link">Create Escrow</a>
+          <a href="/escrows" class="nav-link">Manage Escrows</a>
+        </div>
+        <div class="nav-right">
+          <ThemeSwitcher />
+          <WalletConnect />
+        </div>
+      </nav>
+    </header>
 
-  <main>
-    <slot />
-  </main>
-</div>
+    <main>
+      <slot />
+    </main>
+  </div>
+</RainbowKitAppWrapper>
 
 <style>
   .app {
