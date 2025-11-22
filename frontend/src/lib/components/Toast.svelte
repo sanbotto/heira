@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
 
   export let message: string;
   export let type: 'error' | 'success' | 'info' = 'error';
@@ -7,22 +7,65 @@
   export let onClose: (() => void) | null = null;
 
   let visible = false;
+  let dismissTimeout: ReturnType<typeof setTimeout> | null = null;
+  let isHovered = false;
+  let startTime = Date.now();
+  let remainingTime = duration;
+
+  function startDismissTimer() {
+    if (duration <= 0 || isHovered) return;
+
+    // Clear any existing timeout
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout);
+    }
+
+    dismissTimeout = setTimeout(() => {
+      visible = false;
+      setTimeout(() => onClose?.(), 300); // Wait for fade-out animation
+    }, remainingTime);
+  }
+
+  function handleMouseEnter() {
+    isHovered = true;
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout);
+      dismissTimeout = null;
+      // Calculate remaining time
+      const elapsed = Date.now() - startTime;
+      remainingTime = Math.max(0, remainingTime - elapsed);
+    }
+  }
+
+  function handleMouseLeave() {
+    isHovered = false;
+    startTime = Date.now();
+    startDismissTimer();
+  }
 
   onMount(() => {
     // Trigger animation
     setTimeout(() => (visible = true), 10);
 
-    // Auto-dismiss
+    // Start auto-dismiss timer
     if (duration > 0) {
-      setTimeout(() => {
-        visible = false;
-        setTimeout(() => onClose?.(), 300); // Wait for fade-out animation
-      }, duration);
+      remainingTime = duration;
+      startTime = Date.now();
+      startDismissTimer();
+    }
+  });
+
+  onDestroy(() => {
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout);
     }
   });
 
   function handleClose() {
     visible = false;
+    if (dismissTimeout) {
+      clearTimeout(dismissTimeout);
+    }
     setTimeout(() => onClose?.(), 300);
   }
 </script>
@@ -33,6 +76,8 @@
   class:error={type === 'error'}
   class:success={type === 'success'}
   class:info={type === 'info'}
+  on:mouseenter={handleMouseEnter}
+  on:mouseleave={handleMouseLeave}
 >
   <div class="toast-content">
     <span class="toast-message">{message}</span>
@@ -84,6 +129,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
+    min-width: 0; /* Allows flex item to shrink below content size */
   }
 
   .toast-message {
@@ -91,6 +137,10 @@
     font-size: 0.95rem;
     line-height: 1.5;
     flex: 1;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+    min-width: 0; /* Allows text to wrap properly */
   }
 
   .toast-close {
