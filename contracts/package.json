@@ -1,0 +1,26 @@
+{
+  "name": "heira-contracts",
+  "version": "1.0.0",
+  "description": "Heira inheritance escrow smart contracts",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:base-sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
+    "verify": "hardhat verify",
+    "verify:contract": "hardhat run scripts/verify.js",
+    "verify:escrow": "hardhat run scripts/verify-escrow.js",
+    "verify:escrow:tx": "hardhat run scripts/verify-escrow-after-create.js",
+    "verify:escrows:auto": "hardhat run scripts/auto-verify-escrows.js",
+    "format": "prettier --write 'contracts/**/*.sol' 'test/**/*.js' 'scripts/**/*.js'",
+    "format:check": "prettier --check 'contracts/**/*.sol' 'test/**/*.js' 'scripts/**/*.js'"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.1.0",
+    "hardhat": "^2.22.0",
+    "dotenv": "^16.4.5",
+    "prettier": "^3.3.0",
+    "prettier-plugin-solidity": "^2.0.0"
+  }
+}

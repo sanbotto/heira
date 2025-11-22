@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heira - Web3 Inheritance Management</title>
+    <script>
+      // Initialize theme before page load to prevent flash
+      (function () {
+        const themePreference = localStorage.getItem('theme-preference') || 'auto';
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+        const effectiveTheme = themePreference === 'auto' ? systemTheme : themePreference;
+        document.documentElement.classList.add(effectiveTheme);
+        document.documentElement.setAttribute('data-theme', effectiveTheme);
+      })();
+    </script>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>
