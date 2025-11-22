@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { wallet } from '../../lib/stores/wallet';
-	import { resolveEnsName } from '../../lib/ens';
-	import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
-	import { mainnet, sepolia } from 'viem/chains';
-	import type { Address } from 'viem';
-	import { supportedChains, type SupportedChainId } from '../../lib/wallet';
-	import Toast from '../../lib/components/Toast.svelte';
+  import { wallet } from '../../lib/stores/wallet';
+  import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
+  import { mainnet, sepolia } from 'viem/chains';
+  import type { Address } from 'viem';
+  import { supportedChains, type SupportedChainId } from '../../lib/wallet';
+  import Toast from '../../lib/components/Toast.svelte';
 
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
@@ -73,23 +72,14 @@
   }
 
   // Get valid beneficiaries (rows with both address and percentage)
+  // Note: recipient can be ENS name or address string - contract will resolve
   $: validBeneficiaries = beneficiaryRows
     .filter(row => row.address && row.percentage > 0)
     .map(row => ({
-      recipient: row.address as Address,
+      recipient: row.address, // Can be ENS name or address
       percentage: row.percentage,
       chainId: row.chainId as any,
     }));
-
-  async function resolveAddress(input: string): Promise<Address | null> {
-    if (input.endsWith('.eth')) {
-      return await resolveEnsName(input);
-    }
-    if (input.startsWith('0x') && input.length === 42) {
-      return input as Address;
-    }
-    return null;
-  }
 
   async function handleCreateEscrow() {
     if (!$wallet.address || !$wallet.chainId) {
@@ -110,8 +100,18 @@
     creating = true;
 
     try {
-      const mainWalletAddress = (await resolveAddress(mainWallet)) || ($wallet.address as Address);
+      // Use mainWallet as-is (can be ENS name or address), fallback to connected wallet if empty
+      const mainWalletToUse = mainWallet || ($wallet.address as string);
       const inactivityPeriodSeconds = inactivityPeriod * 24 * 60 * 60;
+
+      // Convert beneficiary rows to config format (recipients can be ENS names or addresses)
+      const beneficiariesToUse: BeneficiaryConfig[] = beneficiaryRows
+        .filter(row => row.address && row.percentage > 0)
+        .map(row => ({
+          recipient: row.address, // Can be ENS name or address string
+          percentage: row.percentage,
+          chainId: row.chainId as any,
+        }));
 
       // Build token configs based on beneficiary selections
       // Group by chainId and tokenType to create token configs
@@ -120,20 +120,11 @@
 
       // Collect unique chainId + tokenType combinations from beneficiaries
       // Match beneficiaries to rows by index since validBeneficiaries maintains order
-      validBeneficiaries.forEach((beneficiary, idx) => {
-        // Find the corresponding row by matching address, chainId, and percentage
-        const row = beneficiaryRows.find(
-          r =>
-            r.address &&
-            r.address.toLowerCase() === beneficiary.recipient.toLowerCase() &&
-            r.chainId === beneficiary.chainId &&
-            r.percentage === beneficiary.percentage
-        );
-
-        if (row && row.tokenType) {
-          const key = `${beneficiary.chainId}-${row.tokenType}`;
+      beneficiaryRows.forEach(row => {
+        if (row.address && row.percentage > 0 && row.tokenType) {
+          const key = `${row.chainId}-${row.tokenType}`;
           if (!chainTokenMap.has(key)) {
-            chainTokenMap.set(key, { chainId: beneficiary.chainId, tokenType: row.tokenType });
+            chainTokenMap.set(key, { chainId: row.chainId, tokenType: row.tokenType });
           }
         }
       });
@@ -162,9 +153,10 @@
       ) as Address;
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
-        const envVarName = ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) 
-          ? 'VITE_FACTORY_ADDRESS_ETHEREUM' 
-          : 'VITE_FACTORY_ADDRESS_BASE';
+        const envVarName =
+          $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
+            ? 'VITE_FACTORY_ADDRESS_ETHEREUM'
+            : 'VITE_FACTORY_ADDRESS_BASE';
         throw new Error(
           `Factory address not configured for chain ${$wallet.chainId}. Please set ${envVarName} in .env`
         );
@@ -173,9 +165,9 @@
       const escrowAddress = await createEscrow(
         factoryAddress,
         {
-          mainWallet: mainWalletAddress,
+          mainWallet: mainWalletToUse,
           inactivityPeriod: inactivityPeriodSeconds,
-          beneficiaries: validBeneficiaries,
+          beneficiaries: beneficiariesToUse,
           tokenConfigs,
         },
         $wallet.chainId
@@ -200,21 +192,6 @@
 
   <div class="card">
     <div class="card-content">
-      <!-- Main Wallet -->
-      <div class="form-group">
-        <label for="main-wallet" class="form-label"> Main Wallet Address (or ENS name) </label>
-        <input
-          id="main-wallet"
-          type="text"
-          bind:value={mainWallet}
-          placeholder={$wallet.address || '0x... or name.eth'}
-          class="form-input"
-        />
-        <p class="form-help">
-          Wallet to monitor for activity. Leave empty to use connected wallet.
-        </p>
-      </div>
-
       <!-- Inactivity Period -->
       <div class="form-group">
         <label for="inactivity-period" class="form-label"> Inactivity Period (days) </label>
@@ -226,7 +203,7 @@
           class="form-input"
         />
         <p class="form-help">
-          After this many days of no transactions, the escrow can be executed.
+          After this many days without transactions, the escrow can be executed.
         </p>
       </div>
 
