@@ -482,10 +482,6 @@
     background-color: var(--color-background-light);
   }
 
-  .table td.text-right {
-    text-align: right;
-  }
-
   .table th.text-center,
   .table td.text-center {
     text-align: center;
