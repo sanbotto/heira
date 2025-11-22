@@ -5,7 +5,6 @@
   import { goto } from '$app/navigation';
   import {
     getBeneficiaries,
-    getTokenConfigs,
     getEscrowStatus,
     getTimeUntilExecution,
     deactivateEscrow,
@@ -36,7 +35,7 @@
   let showToast = false;
 
   onMount(async () => {
-    escrowAddress = $page.params.address;
+    escrowAddress = $page.params.address ?? '';
     if (escrowAddress && $wallet.chainId) {
       await loadEscrowData();
     } else {
@@ -498,7 +497,7 @@
   }
 
   .token-item {
-    display: flex;
+    display: block;
     align-items: center;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
@@ -512,6 +511,7 @@
   .swap-arrow {
     color: var(--color-text-secondary);
     font-weight: 600;
+    margin: 0 0.4rem;
   }
 
   .badge {
