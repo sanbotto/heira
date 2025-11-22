@@ -8,6 +8,10 @@
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
     "deploy:base-sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
     "verify": "hardhat verify",
+    "verify:contract": "hardhat run scripts/verify.js",
+    "verify:escrow": "hardhat run scripts/verify-escrow.js",
+    "verify:escrow:tx": "hardhat run scripts/verify-escrow-after-create.js",
+    "verify:escrows:auto": "hardhat run scripts/auto-verify-escrows.js",
     "format": "prettier --write 'contracts/**/*.sol' 'test/**/*.js' 'scripts/**/*.js'",
     "format:check": "prettier --check 'contracts/**/*.sol' 'test/**/*.js' 'scripts/**/*.js'"
   },
