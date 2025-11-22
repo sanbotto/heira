@@ -186,7 +186,7 @@
       );
 
       showSuccessToast(`Escrow created successfully at ${escrowAddress}`);
-      
+
       // Navigate to the escrow detail page
       await goto(`/escrows/${escrowAddress}`);
     } catch (err) {

@@ -11,13 +11,15 @@
     "prepare": "svelte-kit sync || echo ''",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "deploy:filecoin": "node scripts/deploy-filecoin.js",
+    "deploy:filecoin:mainnet": "node scripts/deploy-filecoin.js --network mainnet",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@sveltejs/adapter-auto": "^7.0.0",
+    "@sveltejs/adapter-static": "^3.0.0",
     "@sveltejs/kit": "^2.48.5",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/forms": "^0.5.10",
@@ -41,6 +43,7 @@
     "vite": "^7.2.2"
   },
   "dependencies": {
+    "@filoz/synapse-sdk": "latest",
     "@ledgerhq/ledger-wagmi-connector": "^1.0.0",
     "@metamask/sdk": "^0.33.1",
     "@rainbow-me/rainbowkit": "^2.2.9",
@@ -49,6 +52,8 @@
     "@wagmi/connectors": "^7.0.1",
     "@wagmi/core": "^3.0.0",
     "@walletconnect/ethereum-provider": "^2.21.10",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.0.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "viem": "^2.39.3",

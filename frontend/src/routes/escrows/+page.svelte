@@ -160,7 +160,7 @@
                 role="button"
                 tabindex="0"
                 on:click={() => handleEscrowClick(escrow.address)}
-                on:keydown={(e) => handleEscrowKeydown(e, escrow.address)}
+                on:keydown={e => handleEscrowKeydown(e, escrow.address)}
               >
                 <div class="escrow-header">
                   <span class="escrow-address text-mono">

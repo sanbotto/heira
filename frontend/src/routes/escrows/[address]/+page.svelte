@@ -19,9 +19,9 @@
   let escrowAddress: string = '';
   let status: number = 0;
   let timeUntilExecution: bigint = BigInt(0);
-  let beneficiaries: Array<{ 
-    recipient: Address; 
-    percentage: bigint; 
+  let beneficiaries: Array<{
+    recipient: Address;
+    percentage: bigint;
     chainId: bigint;
     tokenAddress: Address;
     shouldSwap: boolean;

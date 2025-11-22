@@ -3,5 +3,16 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "remoteUser": "node"
+  "remoteUser": "node",
+  "forwardPorts": [3001, 5173],
+  "portsAttributes": {
+    "3001": {
+      "label": "Backend API",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Frontend Dev Server",
+      "onAutoForward": "notify"
+    }
+  }
 }

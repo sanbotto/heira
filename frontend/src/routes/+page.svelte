@@ -1,11 +1,11 @@
 <div class="container">
   <h1>Welcome to Heira</h1>
-  <p class="description">
-    Automated and permissionless Web3 inheritance management.
-  </p>
+  <p class="description">Automated and permissionless Web3 inheritance management.</p>
 
   <div class="beta-disclaimer">
-    ⚠️ This application is currently in <strong>beta</strong>. Please use with caution, only with amounts you're comfortable losing and only connect disposable wallets. Lastly, use only <strong>testnets</strong>! ⚠️
+    ⚠️ This application is currently in <strong>beta</strong>. Please use with caution, only with
+    amounts you're comfortable losing and only connect disposable wallets. Lastly, use only
+    <strong>testnets</strong>! ⚠️
   </div>
 
   <div class="card">
@@ -19,39 +19,37 @@
           your tokens to designated beneficiaries after a period of inactivity.
         </p>
         <p>
-          Whether you want to ensure your family receives your crypto assets, or you're planning
-          for the long-term distribution of your digital wealth, Heira provides a trustless,
-          automated solution that works entirely on the blockchain.
+          Whether you want to ensure your family receives your crypto assets, or you're planning for
+          the long-term distribution of your digital wealth, Heira provides a trustless, automated
+          solution that works entirely on the blockchain.
         </p>
       </section>
 
       <section class="section">
         <h2>How It Works</h2>
-        <p>
-          Setting up an inheritance escrow is simple:
-        </p>
+        <p>Setting up an inheritance escrow is simple:</p>
         <ol class="steps-list">
           <li>
-            <strong>Create an Escrow:</strong> Specify your beneficiaries, their percentage shares,
-            and an inactivity period (e.g., 90 days).
+            <strong>Create an Escrow:</strong> Specify your beneficiaries, their percentage shares, and
+            an inactivity period (e.g., 90 days).
           </li>
           <li>
-            <strong>Monitor Activity:</strong> The escrow contract monitors your main wallet for
-            transactions. As long as you're active, nothing happens.
+            <strong>Monitor Activity:</strong> The escrow contract monitors your main wallet for transactions.
+            As long as you're active, nothing happens.
           </li>
           <li>
-            <strong>Automatic Execution:</strong> After the inactivity period passes without any
-            transactions from your wallet, anyone can trigger the escrow to execute with the conditions set by you.
+            <strong>Automatic Execution:</strong> After the inactivity period passes without any transactions
+            from your wallet, anyone can trigger the escrow to execute with the conditions set by you.
           </li>
           <li>
-            <strong>Distribution:</strong> Your assets are automatically distributed to your
-            beneficiaries according to your specified percentages, across multiple blockchain
-            networks if needed.
+            <strong>Distribution:</strong> Your assets are automatically distributed to your beneficiaries
+            according to your specified percentages, across multiple blockchain networks if needed.
           </li>
         </ol>
         <p>
-          You maintain full control while you're active. You can also deactivate the escrow at any time if you so choose. The escrow only executes if you've been inactive for
-          the full period.
+          You maintain full control while you're active. You can also deactivate the escrow at any
+          time if you so choose. The escrow only executes if you've been inactive for the full
+          period.
         </p>
       </section>
 
@@ -61,26 +59,33 @@
           <div class="safety-item">
             <h3>Smart Contract Security</h3>
             <p>
-              Heira uses battle-tested OpenZeppelin contracts with security features like
-              reentrancy protection. The code is immutable once deployed, meaning it can't be changed or manipulated by anyone.
+              Heira uses battle-tested OpenZeppelin contracts with security features like reentrancy
+              protection. The code is immutable once deployed, meaning it can't be changed or
+              manipulated by anyone.
             </p>
           </div>
           <div class="safety-item">
             <h3>You Stay in Control</h3>
             <p>
-              As long as you're active, you maintain full control over your assets. The escrow only executes after verified inactivity, giving you complete peace of mind. You can also deactivate the escrow at any time if you so choose.
+              As long as you're active, you maintain full control over your assets. The escrow only
+              executes after verified inactivity, giving you complete peace of mind. You can also
+              deactivate the escrow at any time if you so choose.
             </p>
           </div>
           <div class="safety-item">
             <h3>Transparent & Verifiable</h3>
             <p>
-              All escrow contracts are deployed on public blockchains where anyone can verify the code and conditions. There's no hidden logic nor third parties. Our code is 100% open source.
+              All escrow contracts are deployed on public blockchains where anyone can verify the
+              code and conditions. There's no hidden logic nor third parties. Our code is 100% open
+              source.
             </p>
           </div>
           <div class="safety-item">
             <h3>Permissionless Execution</h3>
             <p>
-              Once conditions are met, anyone can trigger the escrow execution. This ensures your beneficiaries can receive their inheritance even if they're not technical. In any case, we have a network of keepers making sure that all escrows are executed in time.
+              Once conditions are met, anyone can trigger the escrow execution. This ensures your
+              beneficiaries can receive their inheritance even if they're not technical. In any
+              case, we have a network of keepers making sure that all escrows are executed in time.
             </p>
           </div>
         </div>
