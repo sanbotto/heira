@@ -33,6 +33,7 @@
         <div class="nav-brand">
           <a href="/" aria-label="Heira Home">
             <h1 class="logo">Heira</h1>
+            <span class="beta-badge">BETA</span>
           </a>
         </div>
         <div class="nav-links">
@@ -129,6 +130,21 @@
     font-weight: 700;
     margin: 0;
     color: var(--color-primary);
+  }
+
+  .beta-badge {
+    display: inline-block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.125rem 0.375rem;
+    background-color: var(--color-primary);
+    color: var(--color-btn-primary-text);
+    border-radius: var(--radius-sm);
+    margin-left: 0.5rem;
+    vertical-align: super;
+    line-height: 1.2;
   }
 
   .nav-links {

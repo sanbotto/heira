@@ -4,6 +4,10 @@
     Automated and permissionless Web3 inheritance management.
   </p>
 
+  <div class="beta-disclaimer">
+    ⚠️ This application is currently in <strong>beta</strong>. Please use with caution, only with amounts you're comfortable losing and only connect disposable wallets. Lastly, use only <strong>testnets</strong>! ⚠️
+  </div>
+
   <div class="card">
     <div class="card-content">
       <section class="section">
@@ -113,6 +117,22 @@
     color: var(--color-text-secondary);
     margin-bottom: 2rem;
     font-size: 1.125rem;
+  }
+
+  .beta-disclaimer {
+    background-color: var(--color-background-light);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    color: var(--color-text);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .beta-disclaimer strong {
+    color: var(--color-primary);
+    font-weight: 600;
   }
 
   .card {
