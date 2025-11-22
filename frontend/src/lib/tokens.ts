@@ -18,9 +18,11 @@ export interface TokenBalance {
 // The Graph public subgraph endpoints
 const SUBGRAPH_ENDPOINTS: Record<number, string | null> = {
   1: 'https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // Ethereum mainnet
-  11155111: 'https://gateway.thegraph.com/api/subgraphs/id/F2bsVgAZjpkgRfGj4okjDPjJ4Nep8GbTFa29BVABF2y4', // Ethereum Sepolia
+  11155111:
+    'https://gateway.thegraph.com/api/subgraphs/id/F2bsVgAZjpkgRfGj4okjDPjJ4Nep8GbTFa29BVABF2y4', // Ethereum Sepolia
   8453: 'https://gateway.thegraph.com/api/subgraphs/id/HNCFA9TyBqpo5qpe6QreQABAA1kV8g46mhkCcicu6v2R', // Base mainnet
-  84532: 'https://gateway.thegraph.com/api/subgraphs/id/BDp94TTkobSoznjvUp65nb1uv6fUvRLHJLVCbQqmXom3', // Base Sepolia
+  84532:
+    'https://gateway.thegraph.com/api/subgraphs/id/BDp94TTkobSoznjvUp65nb1uv6fUvRLHJLVCbQqmXom3', // Base Sepolia
 };
 
 /**
@@ -32,9 +34,7 @@ export async function getTokenBalances(address: string, chainId?: number): Promi
 
   // If chainId is provided, query that chain
   // Otherwise query all supported chains
-  const chainsToQuery = chainId
-    ? [chainId]
-    : [1, 11155111, 8453, 84532]; // Ethereum mainnet, Sepolia, Base mainnet, Base Sepolia
+  const chainsToQuery = chainId ? [chainId] : [1, 11155111, 8453, 84532]; // Ethereum mainnet, Sepolia, Base mainnet, Base Sepolia
 
   for (const chain of chainsToQuery) {
     try {

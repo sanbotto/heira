@@ -80,7 +80,7 @@ async function fetchPrices(): Promise<Record<string, number>> {
     return prices;
   } catch (error) {
     console.error('Failed to fetch prices from BlockAnalitica API:', error);
-    
+
     // Return cached data if available, even if expired
     if (priceCache) {
       console.warn('Using cached price data due to API error');
