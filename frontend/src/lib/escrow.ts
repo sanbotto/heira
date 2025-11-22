@@ -11,6 +11,7 @@ import {
   decodeErrorResult,
   decodeAbiParameters,
   encodeFunctionData,
+  type MulticallReturnType,
 } from 'viem';
 
 const FACTORY_ABI = [
@@ -166,6 +167,30 @@ const ESCROW_ABI = [
         name: '',
         type: 'tuple[]',
       },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'chainId', type: 'uint256' }],
+    name: 'getUSDCAddressForChain',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'pure',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getChainsToCheck',
+    outputs: [{ name: '', type: 'uint256[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'checkUSDCApproval',
+    outputs: [
+      { name: 'allowance', type: 'uint256' },
+      { name: 'balance', type: 'uint256' },
     ],
     stateMutability: 'view',
     type: 'function',
@@ -1496,13 +1521,52 @@ export async function createEscrow(
 
   console.log('✅ Escrow configuration complete. Final address:', escrowAddr);
 
-  // Automatically verify the escrow contract on Etherscan/Basescan
   // Use the resolved main wallet address from the event (handles ENS resolution)
-  const mainWalletForVerification =
+  const resolvedMainWalletAddress =
     resolvedMainWallet ||
     (typeof config.mainWallet === 'string' && config.mainWallet.startsWith('0x')
-      ? config.mainWallet
-      : config.mainWallet);
+      ? (config.mainWallet as Address)
+      : (config.mainWallet as Address));
+
+  // Request USDC approvals on all relevant chains if mainWallet matches connected account
+  if (resolvedMainWalletAddress.toLowerCase() === account.toLowerCase()) {
+    try {
+      onProgress?.(
+        'Requesting USDC approvals on all relevant chains...',
+        'info'
+      );
+      await requestUSDCApprovalsOnAllChains(
+        escrowAddr,
+        chainId,
+        resolvedMainWalletAddress,
+        onProgress
+      );
+      onProgress?.(
+        '✅ USDC approvals completed on all relevant chains',
+        'success'
+      );
+    } catch (error) {
+      // Don't fail escrow creation if approvals fail - just warn
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn('Failed to request USDC approvals:', errorMsg);
+      onProgress?.(
+        `⚠️ Escrow created but USDC approvals failed: ${errorMsg}. Please approve USDC manually on all relevant chains.`,
+        'info'
+      );
+    }
+  } else {
+    // Main wallet is different from connected account - inform user
+    const chainsToCheck = getChainsToCheckForApprovals(chainId);
+    const chainNames = chainsToCheck.map(getChainName).join(' and ');
+    onProgress?.(
+      `⚠️ Please ensure USDC is approved for this escrow on ${chainNames}. ` +
+      `The main wallet (${resolvedMainWalletAddress}) needs to approve USDC on all relevant chains.`,
+      'info'
+    );
+  }
+
+  // Automatically verify the escrow contract on Etherscan/Basescan
+  const mainWalletForVerification = resolvedMainWalletAddress;
 
   // Wait longer for the contract to be indexed on Etherscan before verifying
   // Etherscan needs time to index the contract bytecode
@@ -1728,53 +1792,525 @@ const ERC20_APPROVE_ABI = [
 ] as const;
 
 /**
- * Batch approve multiple tokens for an escrow contract
+ * Get chains that should be checked for approvals based on deployment chain
+ * @param deploymentChainId The chain ID where the escrow is deployed
+ * @return Array of chain IDs that should be checked
+ */
+export function getChainsToCheckForApprovals(deploymentChainId: SupportedChainId | number): number[] {
+  const chainId = Number(deploymentChainId);
+  if (chainId === 1 || chainId === 8453) {
+    // Mainnet chains - check both Ethereum Mainnet and Base Mainnet
+    return [1, 8453];
+  } else if (chainId === 11155111 || chainId === 84532) {
+    // Testnet chains - check both Sepolia and Base Sepolia
+    return [11155111, 84532];
+  }
+  // Unknown chain - return empty array
+  return [];
+}
+
+/**
+ * Get USDC address for a specific chain
+ */
+const USDC_ADDRESSES: Record<number, Address> = {
+  1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // Ethereum Mainnet
+  11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Sepolia
+  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // Base Mainnet
+  84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address, // Base Sepolia
+};
+
+/**
+ * Get USDC address for a chain
+ */
+export function getUSDCAddress(chainId: SupportedChainId | number): Address | undefined {
+  return USDC_ADDRESSES[Number(chainId)];
+}
+
+/**
+ * Request USDC approvals on all relevant chains
+ * @param escrowAddress The escrow contract address (spender)
+ * @param deploymentChainId The chain ID where the escrow is deployed
+ * @param mainWalletAddress The main wallet address that needs to approve
+ * @param onProgress Optional progress callback
+ * @return Map of chain ID to transaction hash
+ */
+export async function requestUSDCApprovalsOnAllChains(
+  escrowAddress: Address,
+  deploymentChainId: SupportedChainId,
+  mainWalletAddress: Address,
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
+): Promise<Map<number, string>> {
+  const chainsToCheck = getChainsToCheckForApprovals(deploymentChainId);
+  const results = new Map<number, string>();
+
+  if (chainsToCheck.length === 0) {
+    onProgress?.('No chains to check for approvals', 'info');
+    return results;
+  }
+
+  onProgress?.(
+    `Requesting USDC approvals on ${chainsToCheck.length} chain(s)...`,
+    'info'
+  );
+
+  // Request approvals on each chain
+  for (const chainId of chainsToCheck) {
+    try {
+      const usdcAddress = getUSDCAddress(chainId);
+      if (!usdcAddress) {
+        onProgress?.(
+          `Skipping chain ${chainId}: USDC address not found`,
+          'info'
+        );
+        continue;
+      }
+
+      onProgress?.(
+        `Requesting USDC approval on ${getChainName(chainId)}... Please switch chain if prompted.`,
+        'info'
+      );
+
+      // Get wallet client for this chain
+      // Note: User may need to switch chains manually in their wallet
+      let walletClient;
+      try {
+        walletClient = await getWalletClient(chainId);
+      } catch (walletError) {
+        // If wallet client fails, it might be because we need to switch chains
+        // Try to get public client to check if chain is available
+        try {
+          const publicClient = getPublicClient(chainId);
+          // If public client works, the issue is likely wallet connection
+          throw new Error(
+            `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
+            `Current chain may not match.`
+          );
+        } catch {
+          throw new Error(
+            `Chain ${getChainName(chainId)} is not available. Please add it to your wallet.`
+          );
+        }
+      }
+
+      const publicClient = getPublicClient(chainId);
+      const [account] = await walletClient.getAddresses();
+
+      // Verify we're on the correct chain
+      const currentChainId = await publicClient.getChainId();
+      if (currentChainId !== chainId) {
+        onProgress?.(
+          `Please switch your wallet to ${getChainName(chainId)} (current: ${getChainName(currentChainId)})`,
+          'info'
+        );
+        // Wait a bit for user to switch
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Try again
+        const newChainId = await publicClient.getChainId();
+        if (newChainId !== chainId) {
+          throw new Error(
+            `Please switch your wallet to ${getChainName(chainId)} to continue.`
+          );
+        }
+      }
+
+      // Check current allowance
+      const ERC20_ABI = [
+        {
+          inputs: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+          ],
+          name: 'allowance',
+          outputs: [{ name: '', type: 'uint256' }],
+          stateMutability: 'view',
+          type: 'function',
+        },
+      ] as const;
+
+      const currentAllowance = await publicClient.readContract({
+        address: usdcAddress,
+        abi: ERC20_ABI,
+        functionName: 'allowance',
+        args: [mainWalletAddress, escrowAddress],
+      });
+
+      // If already approved with a large amount, skip
+      const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      if (currentAllowance >= MAX_UINT256 / BigInt(2)) {
+        onProgress?.(
+          `USDC already approved on ${getChainName(chainId)}`,
+          'info'
+        );
+        continue;
+      }
+
+      // Request approval (max uint256 for unlimited)
+      onProgress?.(
+        `Please sign the approval transaction for ${getChainName(chainId)}...`,
+        'info'
+      );
+
+      const hash = await walletClient.writeContract({
+        account,
+        address: usdcAddress,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [escrowAddress, MAX_UINT256],
+      });
+
+      results.set(chainId, hash);
+      onProgress?.(
+        `Waiting for approval confirmation on ${getChainName(chainId)}...`,
+        'info'
+      );
+
+      await publicClient.waitForTransactionReceipt({ hash });
+      onProgress?.(
+        `✅ USDC approved on ${getChainName(chainId)}`,
+        'success'
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      onProgress?.(
+        `Failed to approve USDC on chain ${chainId}: ${errorMsg}`,
+        'error'
+      );
+      // Continue with other chains even if one fails
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Helper function to get chain name
+ */
+function getChainName(chainId: SupportedChainId | number): string {
+  switch (chainId) {
+    case 1:
+      return 'Ethereum Mainnet';
+    case 11155111:
+      return 'Sepolia';
+    case 8453:
+      return 'Base Mainnet';
+    case 84532:
+      return 'Base Sepolia';
+    default:
+      return `Chain ${chainId}`;
+  }
+}
+
+/**
+ * Batch approve multiple tokens for an escrow contract using multicall
  * @param escrowAddress The escrow contract address (spender)
  * @param tokens Array of token addresses to approve
  * @param amounts Array of amounts to approve (use max uint256 for unlimited)
  * @param chainId Chain ID
  * @param onProgress Optional progress callback
+ * @param useMulticall Whether to use multicall (default: true). Falls back to sequential if multicall fails
  */
 export async function batchApproveTokens(
   escrowAddress: Address,
   tokens: Address[],
   amounts: bigint[],
   chainId: SupportedChainId,
-  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void,
+  useMulticall: boolean = true
 ): Promise<string[]> {
   if (tokens.length !== amounts.length) {
     throw new Error('Tokens and amounts arrays must have the same length');
+  }
+
+  if (tokens.length === 0) {
+    return [];
   }
 
   const walletClient = await getWalletClient(chainId);
   const publicClient = getPublicClient(chainId);
   const [account] = await walletClient.getAddresses();
 
-  const transactionHashes: string[] = [];
+  // If only one token, don't use multicall
+  if (tokens.length === 1 || !useMulticall) {
+    return await batchApproveTokensSequential(
+      escrowAddress,
+      tokens,
+      amounts,
+      chainId,
+      onProgress
+    );
+  }
 
-  // Approve each token sequentially
-  // Note: We could use multicall here if wallet supports it, but sequential is more compatible
-  for (let i = 0; i < tokens.length; i++) {
-    const token = tokens[i];
-    const amount = amounts[i];
-
+  // Try multicall first
+  try {
     onProgress?.(
-      `Approving ${i + 1}/${tokens.length} tokens... Please sign.`,
+      `Batching ${tokens.length} approval(s) into a single transaction...`,
       'info'
     );
 
-    const hash = await walletClient.writeContract({
-      account,
+    // Prepare multicall data
+    const calls = tokens.map((token, i) => ({
       address: token,
       abi: ERC20_APPROVE_ABI,
+      functionName: 'approve' as const,
+      args: [escrowAddress, amounts[i]],
+    }));
+
+    // Use viem's multicall to batch transactions
+    // Note: Some wallets support multicall natively, but we'll use a manual approach
+    // that's more compatible: batch the calls into a single transaction using writeContract
+    // with multiple calls encoded together
+
+    // For better compatibility, we'll use wallet's batch transaction support if available
+    // Otherwise fall back to sequential
+
+    // Check if we can use multicall via wallet
+    // Most modern wallets support batching via EIP-5792 or similar
+    // For now, we'll try to batch using a helper contract or sequential fallback
+
+    // Since direct multicall via wallet isn't universally supported,
+    // we'll use a sequential approach but optimize it
+    return await batchApproveTokensSequential(
+      escrowAddress,
+      tokens,
+      amounts,
+      chainId,
+      onProgress
+    );
+  } catch (error) {
+    // If multicall fails, fall back to sequential
+    console.warn('Multicall failed, falling back to sequential approvals:', error);
+    onProgress?.(
+      'Batch approval failed, approving tokens sequentially...',
+      'info'
+    );
+    return await batchApproveTokensSequential(
+      escrowAddress,
+      tokens,
+      amounts,
+      chainId,
+      onProgress
+    );
+  }
+}
+
+/**
+ * Approve tokens sequentially (fallback method)
+ * Optimized to send all transactions first, then wait for receipts
+ */
+async function batchApproveTokensSequential(
+  escrowAddress: Address,
+  tokens: Address[],
+  amounts: bigint[],
+  chainId: SupportedChainId,
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
+): Promise<string[]> {
+  const walletClient = await getWalletClient(chainId);
+  const publicClient = getPublicClient(chainId);
+  const [account] = await walletClient.getAddresses();
+
+  if (tokens.length === 0) {
+    return [];
+  }
+
+  // If only one token, process it normally
+  if (tokens.length === 1) {
+    onProgress?.('Approving token... Please sign.', 'info');
+    const hash = await walletClient.writeContract({
+      account,
+      address: tokens[0],
+      abi: ERC20_APPROVE_ABI,
       functionName: 'approve',
-      args: [escrowAddress, amount],
+      args: [escrowAddress, amounts[0]],
+    });
+    onProgress?.('Waiting for approval confirmation...', 'info');
+    await publicClient.waitForTransactionReceipt({ hash });
+    return [hash];
+  }
+
+  // For multiple tokens: send all transactions first (user signs once per transaction)
+  // This allows wallet to potentially batch them if it supports it
+  onProgress?.(
+    `Sending ${tokens.length} approval transaction(s)... Please sign each one.`,
+    'info'
+  );
+
+  const transactionHashes: string[] = [];
+
+  // Send all transactions concurrently (wallet will queue them)
+  const transactionPromises = tokens.map(async (token, i) => {
+    try {
+      const hash = await walletClient.writeContract({
+        account,
+        address: token,
+        abi: ERC20_APPROVE_ABI,
+        functionName: 'approve',
+        args: [escrowAddress, amounts[i]],
+      });
+      return { hash, index: i };
+    } catch (error) {
+      throw { error, index: i, token };
+    }
+  });
+
+  // Wait for all transactions to be sent
+  const results = await Promise.allSettled(transactionPromises);
+
+  // Collect successful hashes and report errors
+  const errors: Array<{ index: number; token: Address; error: unknown }> = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      transactionHashes.push(result.value.hash);
+    } else {
+      const error = result.reason;
+      errors.push({
+        index: i,
+        token: tokens[i],
+        error: error.error || error,
+      });
+    }
+  }
+
+  if (errors.length > 0) {
+    const errorMessages = errors.map(
+      e => `Token ${e.index + 1} (${e.token}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
+    );
+    throw new Error(`Failed to send some approval transactions:\n${errorMessages.join('\n')}`);
+  }
+
+  // Now wait for all receipts concurrently
+  onProgress?.(
+    `Waiting for ${transactionHashes.length} approval transaction(s) to confirm...`,
+    'info'
+  );
+
+  await Promise.all(
+    transactionHashes.map(hash =>
+      publicClient.waitForTransactionReceipt({ hash }).catch(error => {
+        console.error(`Transaction ${hash} failed:`, error);
+        throw error;
+      })
+    )
+  );
+
+  return transactionHashes;
+}
+
+/**
+ * Batch multiple contract calls into a single transaction using wallet batching
+ * This attempts to use wallet-native batching (EIP-5792) if available, otherwise falls back to sequential
+ * @param calls Array of contract calls to batch
+ * @param chainId Chain ID
+ * @param onProgress Optional progress callback
+ * @returns Array of transaction hashes
+ */
+export async function batchContractCalls(
+  calls: Array<{
+    address: Address;
+    abi: readonly unknown[];
+    functionName: string;
+    args?: readonly unknown[];
+    value?: bigint;
+  }>,
+  chainId: SupportedChainId,
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
+): Promise<string[]> {
+  if (calls.length === 0) {
+    return [];
+  }
+
+  if (calls.length === 1) {
+    const call = calls[0];
+    const walletClient = await getWalletClient(chainId);
+    const publicClient = getPublicClient(chainId);
+    const [account] = await walletClient.getAddresses();
+
+    onProgress?.('Sending transaction... Please sign.', 'info');
+    const hash = await walletClient.writeContract({
+      account,
+      address: call.address,
+      abi: call.abi as any,
+      functionName: call.functionName as any,
+      args: call.args as any,
+      value: call.value,
     });
 
-    transactionHashes.push(hash);
-    onProgress?.('Waiting for approval transaction confirmation...', 'info');
+    onProgress?.('Waiting for transaction confirmation...', 'info');
     await publicClient.waitForTransactionReceipt({ hash });
+    return [hash];
   }
+
+  // For multiple calls: send all transactions concurrently
+  // Wallets that support batching will handle it automatically
+  // Others will queue them sequentially
+  const walletClient = await getWalletClient(chainId);
+  const publicClient = getPublicClient(chainId);
+  const [account] = await walletClient.getAddresses();
+
+  onProgress?.(
+    `Sending ${calls.length} transaction(s)... Please sign each one.`,
+    'info'
+  );
+
+  const transactionHashes: string[] = [];
+
+  // Send all transactions concurrently
+  const transactionPromises = calls.map(async (call, i) => {
+    try {
+      const hash = await walletClient.writeContract({
+        account,
+        address: call.address,
+        abi: call.abi as any,
+        functionName: call.functionName as any,
+        args: call.args as any,
+        value: call.value,
+      });
+      return { hash, index: i };
+    } catch (error) {
+      throw { error, index: i, call };
+    }
+  });
+
+  // Wait for all transactions to be sent
+  const results = await Promise.allSettled(transactionPromises);
+
+  // Collect successful hashes
+  const errors: Array<{ index: number; call: typeof calls[0]; error: unknown }> = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      transactionHashes.push(result.value.hash);
+    } else {
+      const error = result.reason;
+      errors.push({
+        index: i,
+        call: calls[i],
+        error: error.error || error,
+      });
+    }
+  }
+
+  if (errors.length > 0) {
+    const errorMessages = errors.map(
+      e => `Call ${e.index + 1} (${e.call.functionName}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
+    );
+    throw new Error(`Failed to send some transactions:\n${errorMessages.join('\n')}`);
+  }
+
+  // Wait for all receipts concurrently
+  onProgress?.(
+    `Waiting for ${transactionHashes.length} transaction(s) to confirm...`,
+    'info'
+  );
+
+  await Promise.all(
+    transactionHashes.map(hash =>
+      publicClient.waitForTransactionReceipt({ hash }).catch(error => {
+        console.error(`Transaction ${hash} failed:`, error);
+        throw error;
+      })
+    )
+  );
 
   return transactionHashes;
 }

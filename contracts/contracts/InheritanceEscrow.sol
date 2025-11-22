@@ -138,7 +138,14 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             })
         );
 
-        emit BeneficiaryAdded(_recipient, _percentage, _chainId, _tokenAddress, _shouldSwap, _targetToken);
+        emit BeneficiaryAdded(
+            _recipient,
+            _percentage,
+            _chainId,
+            _tokenAddress,
+            _shouldSwap,
+            _targetToken
+        );
     }
 
     /**
@@ -170,10 +177,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         // Check if it's an ENS name
         if (ENSResolver.isENSName(_recipient)) {
             recipientAddress = ENSResolver.resolve(_recipient);
-            require(
-                recipientAddress != address(0),
-                "ENS name resolution failed."
-            );
+            require(recipientAddress != address(0), "ENS name resolution failed.");
         } else {
             // Try to parse as address (hex string)
             recipientAddress = _parseAddress(_recipient);
@@ -191,7 +195,14 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             })
         );
 
-        emit BeneficiaryAdded(recipientAddress, _percentage, _chainId, _tokenAddress, _shouldSwap, _targetToken);
+        emit BeneficiaryAdded(
+            recipientAddress,
+            _percentage,
+            _chainId,
+            _tokenAddress,
+            _shouldSwap,
+            _targetToken
+        );
     }
 
     /**
@@ -256,10 +267,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(
             _recipients.length == _percentages.length &&
-            _recipients.length == _chainIds.length &&
-            _recipients.length == _tokenAddresses.length &&
-            _recipients.length == _shouldSwaps.length &&
-            _recipients.length == _targetTokens.length,
+                _recipients.length == _chainIds.length &&
+                _recipients.length == _tokenAddresses.length &&
+                _recipients.length == _shouldSwaps.length &&
+                _recipients.length == _targetTokens.length,
             "Array length mismatch"
         );
         require(status == Status.Active, "Contract is inactive");
@@ -293,7 +304,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             );
         }
     }
-
 
     /**
      * @notice Update the last activity timestamp (called by keeper or oracle)
@@ -360,6 +370,82 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Get USDC address for a specific chain ID
+     * @param chainId Chain ID to get USDC address for
+     * @return USDC token address for the specified chain
+     */
+    function getUSDCAddressForChain(uint256 chainId) external pure returns (address) {
+        if (chainId == 1) {
+            // Ethereum Mainnet
+            return 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+        } else if (chainId == 11155111) {
+            // Sepolia
+            return 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
+        } else if (chainId == 8453) {
+            // Base Mainnet
+            return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+        } else if (chainId == 84532) {
+            // Base Sepolia
+            return 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
+        }
+        return address(0);
+    }
+
+    /**
+     * @notice Get the chain IDs that should be checked for approvals based on deployment chain
+     * @return Array of chain IDs that should be checked
+     * @dev Returns both testnet chains (Sepolia and Base Sepolia) if deployed on testnet,
+     *      or both mainnet chains (Ethereum Mainnet and Base Mainnet) if deployed on mainnet
+     */
+    function getChainsToCheck() external view returns (uint256[] memory) {
+        uint256[] memory chains;
+
+        if (block.chainid == 1 || block.chainid == 8453) {
+            // Mainnet chains - check both Ethereum Mainnet and Base Mainnet
+            chains = new uint256[](2);
+            chains[0] = 1; // Ethereum Mainnet
+            chains[1] = 8453; // Base Mainnet
+        } else if (block.chainid == 11155111 || block.chainid == 84532) {
+            // Testnet chains - check both Sepolia and Base Sepolia
+            chains = new uint256[](2);
+            chains[0] = 11155111; // Sepolia
+            chains[1] = 84532; // Base Sepolia
+        } else {
+            // Unknown chain - return empty array
+            chains = new uint256[](0);
+        }
+
+        return chains;
+    }
+
+    /**
+     * @notice Check USDC allowance for mainWallet on current chain
+     * @return allowance Current USDC allowance from mainWallet to this contract
+     * @return balance Current USDC balance of mainWallet
+     * @dev This can only check the current chain where the contract is deployed.
+     *      Solidity contracts cannot directly query state from other chains.
+     *      For cross-chain approval verification, use off-chain services or the frontend
+     *      which calls getChainsToCheck() to determine which chains should be checked
+     *      and verifies approvals on each chain separately.
+     *
+     *      When deployed to:
+     *      - Eth Sepolia (11155111) or Base Sepolia (84532): Should check approvals on BOTH Sepolia AND Base Sepolia
+     *      - Eth Mainnet (1) or Base Mainnet (8453): Should check approvals on BOTH Mainnet AND Base Mainnet
+     */
+    function checkUSDCApproval() external view returns (uint256 allowance, uint256 balance) {
+        address usdcAddress = _getUSDCAddress();
+        if (usdcAddress == address(0)) {
+            return (0, 0);
+        }
+
+        IERC20 usdcContract = IERC20(usdcAddress);
+        allowance = usdcContract.allowance(mainWallet, address(this));
+        balance = usdcContract.balanceOf(mainWallet);
+
+        return (allowance, balance);
+    }
+
+    /**
      * @notice Pull tokens from mainWallet using spending cap allowance
      * @param token Token address to pull
      * @param amount Amount to pull
@@ -374,14 +460,14 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         IERC20 tokenContract = IERC20(token);
         uint256 allowance = tokenContract.allowance(mainWallet, address(this));
         uint256 balance = tokenContract.balanceOf(mainWallet);
-        
+
         uint256 toPull = amount < allowance ? amount : allowance;
         toPull = toPull < balance ? toPull : balance;
-        
+
         if (toPull > 0) {
             SafeERC20.safeTransferFrom(tokenContract, mainWallet, address(this), toPull);
         }
-        
+
         return toPull;
     }
 
@@ -400,23 +486,27 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         // Detect funds: ETH in escrow (user must send ETH to escrow) and USDC in mainWallet
         uint256 ethBalance = address(this).balance;
         address usdcAddress = _getUSDCAddress();
-        
+
         // Pull USDC from mainWallet for beneficiaries who want USDC directly
         if (usdcAddress != address(0)) {
             uint256 usdcBalanceInMainWallet = IERC20(usdcAddress).balanceOf(mainWallet);
-            
+
             if (usdcBalanceInMainWallet > 0) {
                 // Calculate total USDC needed for beneficiaries who want USDC directly (not swapped)
                 uint256 totalUSDCNeeded = 0;
                 for (uint256 i = 0; i < beneficiaries.length; i++) {
-                    if (beneficiaries[i].chainId == block.chainid &&
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
                         beneficiaries[i].tokenAddress == usdcAddress &&
-                        !beneficiaries[i].shouldSwap) {
+                        !beneficiaries[i].shouldSwap
+                    ) {
                         // Beneficiary wants USDC directly - calculate their portion
-                        totalUSDCNeeded += (usdcBalanceInMainWallet * beneficiaries[i].percentage) / BASIS_POINTS;
+                        totalUSDCNeeded +=
+                            (usdcBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
                     }
                 }
-                
+
                 // Pull USDC from mainWallet using spending cap
                 if (totalUSDCNeeded > 0) {
                     _pullTokensFromMainWallet(usdcAddress, totalUSDCNeeded);
@@ -465,15 +555,23 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             }
 
             // Swap if beneficiary wants swap
-            if (beneficiary.shouldSwap && beneficiary.targetToken != address(0) && address(coinbaseTrade) != address(0)) {
+            if (
+                beneficiary.shouldSwap &&
+                beneficiary.targetToken != address(0) &&
+                address(coinbaseTrade) != address(0)
+            ) {
                 uint256 swappedAmount = _executeSwapForBeneficiary(
                     tokenAddress,
                     beneficiary.targetToken,
                     beneficiaryAmount
                 );
-                
+
                 // Distribute swapped tokens
-                _distributeToBeneficiary(beneficiary.targetToken, beneficiary.recipient, swappedAmount);
+                _distributeToBeneficiary(
+                    beneficiary.targetToken,
+                    beneficiary.recipient,
+                    swappedAmount
+                );
             } else {
                 // Distribute directly without swap
                 _distributeToBeneficiary(tokenAddress, beneficiary.recipient, beneficiaryAmount);
@@ -545,7 +643,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         emit FundsTransferred(tokenAddress, recipient, amount, block.chainid);
     }
 
-
     /**
      * @notice Get all beneficiaries
      * @return Array of beneficiary structs
@@ -558,7 +655,11 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @notice Get all token configurations (deprecated - token configs are now per-beneficiary)
      * @return Empty array (for backward compatibility)
      */
-    function getTokenConfigs() external pure returns (address[] memory, uint256[] memory, bool[] memory, address[] memory) {
+    function getTokenConfigs()
+        external
+        pure
+        returns (address[] memory, uint256[] memory, bool[] memory, address[] memory)
+    {
         // Return empty arrays for backward compatibility
         return (new address[](0), new uint256[](0), new bool[](0), new address[](0));
     }
