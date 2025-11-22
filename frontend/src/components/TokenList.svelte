@@ -20,7 +20,8 @@
 
     loading = true;
     try {
-      tokens = await getTokenBalances($wallet.address);
+      // Query balances for the current chain
+      tokens = await getTokenBalances($wallet.address, $wallet.chainId || undefined);
 
       // Get prices for all unique symbols
       const symbols = [...new Set(tokens.map(t => t.symbol))];
@@ -56,8 +57,12 @@
     switch (chainId) {
       case 1:
         return 'Ethereum';
+      case 11155111:
+        return 'Sepolia';
       case 8453:
         return 'Base';
+      case 84532:
+        return 'Base Sepolia';
       default:
         return `Chain ${chainId}`;
     }
