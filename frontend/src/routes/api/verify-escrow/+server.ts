@@ -77,6 +77,8 @@ export const POST: RequestHandler = async ({ request }) => {
       `OWNER=${escapeShell(owner)}`,
     ].join(' ');
 
+    const cleanCommand = `cd ${contractsDir} && npx hardhat clean`;
+    const compileCommand = `cd ${contractsDir} && npx hardhat compile`;
     const command = `cd ${contractsDir} && ${envVars} npx hardhat run scripts/verify-escrow.js --network ${network}`;
 
     console.log(
@@ -84,53 +86,88 @@ export const POST: RequestHandler = async ({ request }) => {
     );
     console.log(`Working directory: ${contractsDir}`);
 
-    // Execute the verification
     try {
+      // Clean artifacts first
+      console.log('Cleaning old artifacts...');
+      try {
+        await execAsync(cleanCommand, {
+          timeout: 30000,
+          maxBuffer: 1024 * 1024 * 10,
+          cwd: contractsDir,
+        });
+      } catch (cleanError: any) {
+        console.warn('Clean warning (continuing anyway):', cleanError.message);
+      }
+
+      // Compile contracts
+      console.log('Compiling contracts...');
+      try {
+        await execAsync(compileCommand, {
+          timeout: 120000,
+          maxBuffer: 1024 * 1024 * 10,
+          cwd: contractsDir,
+        });
+        console.log('Compilation successful');
+      } catch (compileError: any) {
+        const compileOutput = (compileError.stdout || '') + (compileError.stderr || '');
+        // Only fail if there are actual errors (not just warnings)
+        if (compileOutput.toLowerCase().includes('error') && !compileOutput.toLowerCase().includes('warning')) {
+          console.error('Compilation failed:', compileOutput);
+          return json(
+            {
+              success: false,
+              message: 'Compilation failed before verification.',
+              details: compileOutput,
+            },
+            { status: 500 }
+          );
+        }
+        console.warn('Compilation completed with warnings, continuing...');
+      }
+
+      // Small delay to ensure file system is synced
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      console.log('Running verification script...');
       const { stdout, stderr } = await execAsync(command, {
-        timeout: 120000, // 120 second timeout (verification can take time)
-        maxBuffer: 1024 * 1024 * 10, // 10MB buffer
-        cwd: contractsDir, // Set working directory explicitly
+        timeout: 180000,
+        maxBuffer: 1024 * 1024 * 10,
+        cwd: contractsDir,
+        env: {
+          ...process.env,
+          CONTRACT_ADDRESS: escrowAddress,
+          MAIN_WALLET: mainWallet,
+          INACTIVITY_PERIOD: inactivityPeriod.toString(),
+          OWNER: owner,
+        },
       });
 
       console.log('Verification stdout:', stdout);
       if (stderr) console.log('Verification stderr:', stderr);
 
-      // Check if verification was successful
+      // If execAsync didn't throw, verification succeeded
+      // Extract explorer URL if present
       const output = stdout + stderr;
-      const isSuccess = output.includes('✅') || output.includes('already verified');
-      const isAlreadyVerified = output.includes('already verified');
+      const explorerUrlMatch = output.match(/View on explorer: (https?:\/\/[^\s]+)/i);
+      const explorerUrl = explorerUrlMatch ? explorerUrlMatch[1] : undefined;
 
-      if (isSuccess) {
-        // Extract explorer URL if present
-        const explorerUrlMatch = output.match(/View on explorer: (https?:\/\/[^\s]+)/);
-        const explorerUrl = explorerUrlMatch ? explorerUrlMatch[1] : undefined;
+      const isAlreadyVerified = output.toLowerCase().includes('already verified');
 
-        return json({
-          success: true,
-          message: isAlreadyVerified
-            ? 'Contract is already verified'
-            : 'Contract verified successfully',
-          explorerUrl,
-          alreadyVerified: isAlreadyVerified,
-        });
-      } else {
-        return json(
-          {
-            success: false,
-            message: 'Verification failed',
-            details: output,
-          },
-          { status: 500 }
-        );
-      }
+      return json({
+        success: true,
+        message: isAlreadyVerified ? 'Contract is already verified' : 'Contract verified successfully',
+        explorerUrl,
+        alreadyVerified: isAlreadyVerified,
+      });
     } catch (execError: any) {
       const errorOutput = (execError.stdout || '') + (execError.stderr || '');
-      console.error('Verification exec error:', execError);
+      console.error('Verification error:', execError.message);
       console.error('Error output:', errorOutput);
 
-      // Check if it's already verified
-      if (errorOutput.includes('already verified') || errorOutput.includes('Already Verified')) {
-        const explorerUrlMatch = errorOutput.match(/View on explorer: (https?:\/\/[^\s]+)/);
+      // Check if it's already verified (this can happen even with errors)
+      const isAlreadyVerified = errorOutput.toLowerCase().includes('already verified');
+      if (isAlreadyVerified) {
+        const explorerUrlMatch = errorOutput.match(/View on explorer: (https?:\/\/[^\s]+)/i);
         const explorerUrl = explorerUrlMatch ? explorerUrlMatch[1] : undefined;
 
         return json({
@@ -141,15 +178,17 @@ export const POST: RequestHandler = async ({ request }) => {
         });
       }
 
-      // Extract more detailed error message
+      // Extract error message
       let errorMessage = 'Verification failed';
-      if (errorOutput) {
+      if (errorOutput.includes('bytecode') && errorOutput.includes("doesn't match")) {
+        errorMessage = 'Bytecode mismatch: The deployed contract bytecode does not match the compiled contract. Please ensure compiler settings match exactly.';
+      } else if (errorOutput) {
         // Try to extract a meaningful error message
-        const errorMatch = errorOutput.match(/Error:?\s*(.+)/i) || errorOutput.match(/❌\s*(.+)/);
+        const errorMatch = errorOutput.match(/Error:?\s*(.+?)(?:\n|$)/i);
         if (errorMatch) {
           errorMessage = errorMatch[1].trim();
         } else {
-          errorMessage = errorOutput.slice(0, 500); // First 500 chars
+          errorMessage = errorOutput.slice(0, 500);
         }
       } else if (execError.message) {
         errorMessage = execError.message;
@@ -160,7 +199,6 @@ export const POST: RequestHandler = async ({ request }) => {
           success: false,
           message: errorMessage,
           details: errorOutput || execError.message,
-          command: command.replace(/ETHERSCAN_API_KEY=[^\s]+/, 'ETHERSCAN_API_KEY=***'),
         },
         { status: 500 }
       );

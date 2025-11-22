@@ -19,6 +19,7 @@ interface ICoinbaseTrade {
      * @notice Execute a token swap via Coinbase CDP Trade API
      * @param params Swap parameters including tokens, amounts, and recipient
      * @return amountOut The amount of output tokens received
+     * @dev If tokenIn is address(0), ETH value must be sent with this call
      */
-    function executeSwap(SwapParams calldata params) external returns (uint256 amountOut);
+    function executeSwap(SwapParams calldata params) external payable returns (uint256 amountOut);
 }

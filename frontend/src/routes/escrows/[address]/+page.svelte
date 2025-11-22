@@ -20,10 +20,11 @@
   let escrowAddress: string = '';
   let status: number = 0;
   let timeUntilExecution: bigint = BigInt(0);
-  let beneficiaries: Array<{ recipient: Address; percentage: bigint; chainId: bigint }> = [];
-  let tokenConfigs: Array<{
-    tokenAddress: Address;
+  let beneficiaries: Array<{ 
+    recipient: Address; 
+    percentage: bigint; 
     chainId: bigint;
+    tokenAddress: Address;
     shouldSwap: boolean;
     targetToken: Address;
   }> = [];
@@ -53,17 +54,15 @@
     error = null;
 
     try {
-      const [escrowStatus, timeUntilExec, bens, tokens] = await Promise.all([
+      const [escrowStatus, timeUntilExec, bens] = await Promise.all([
         getEscrowStatus(escrowAddress as Address, $wallet.chainId),
         getTimeUntilExecution(escrowAddress as Address, $wallet.chainId),
         getBeneficiaries(escrowAddress as Address, $wallet.chainId),
-        getTokenConfigs(escrowAddress as Address, $wallet.chainId),
       ]);
 
       status = Number(escrowStatus);
       timeUntilExecution = timeUntilExec;
       beneficiaries = bens;
-      tokenConfigs = tokens;
     } catch (err) {
       console.error('Failed to load escrow data:', err);
       error = err instanceof Error ? err.message : 'Failed to load escrow data';
@@ -147,7 +146,14 @@
     shouldSwap: boolean;
     targetToken: Address;
   }> {
-    return tokenConfigs.filter(config => config.chainId === beneficiaryChainId);
+    return beneficiaries
+      .filter(ben => ben.chainId === beneficiaryChainId)
+      .map(ben => ({
+        tokenAddress: ben.tokenAddress,
+        chainId: ben.chainId,
+        shouldSwap: ben.shouldSwap,
+        targetToken: ben.targetToken,
+      }));
   }
 
   function showToastMessage(message: string, type: 'error' | 'success' | 'info' = 'info') {

@@ -26,13 +26,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         address recipient;
         uint256 percentage; // Basis points (10000 = 100%)
         uint256 chainId; // Chain ID where recipient should receive funds
-    }
-
-    struct TokenConfig {
-        address tokenAddress;
-        uint256 chainId;
-        bool shouldSwap;
-        address targetToken; // Token to swap to (if shouldSwap is true)
+        address tokenAddress; // Token to receive (zero address for native ETH)
+        bool shouldSwap; // Whether to swap before sending
+        address targetToken; // Target token if swapping (zero address if not swapping)
     }
 
     // Configuration
@@ -45,9 +41,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     Beneficiary[] public beneficiaries;
     uint256 public constant BASIS_POINTS = 10000;
 
-    // Token configurations
-    TokenConfig[] public tokenConfigs;
-
     // Coinbase Trade integration
     ICoinbaseTrade public coinbaseTrade;
 
@@ -57,10 +50,11 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         address indexed mainWallet,
         uint256 inactivityPeriod
     );
-    event BeneficiaryAdded(address indexed recipient, uint256 percentage, uint256 chainId);
-    event TokenConfigAdded(
-        address indexed token,
+    event BeneficiaryAdded(
+        address indexed recipient,
+        uint256 percentage,
         uint256 chainId,
+        address tokenAddress,
         bool shouldSwap,
         address targetToken
     );
@@ -109,25 +103,42 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Add a beneficiary with distribution percentage
+     * @notice Add a beneficiary with distribution percentage and token swap config
      * @param _recipient Address to receive funds
      * @param _percentage Distribution percentage in basis points
      * @param _chainId Chain ID where recipient should receive funds
+     * @param _tokenAddress Token to receive (zero address for native ETH)
+     * @param _shouldSwap Whether to swap before sending
+     * @param _targetToken Target token if swapping (zero address if not swapping)
      */
     function addBeneficiary(
         address _recipient,
         uint256 _percentage,
-        uint256 _chainId
+        uint256 _chainId,
+        address _tokenAddress,
+        bool _shouldSwap,
+        address _targetToken
     ) external onlyOwner {
         require(_recipient != address(0), "Invalid recipient");
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
 
+        if (_shouldSwap) {
+            require(_targetToken != address(0), "Invalid target token");
+        }
+
         beneficiaries.push(
-            Beneficiary({recipient: _recipient, percentage: _percentage, chainId: _chainId})
+            Beneficiary({
+                recipient: _recipient,
+                percentage: _percentage,
+                chainId: _chainId,
+                tokenAddress: _tokenAddress,
+                shouldSwap: _shouldSwap,
+                targetToken: _targetToken
+            })
         );
 
-        emit BeneficiaryAdded(_recipient, _percentage, _chainId);
+        emit BeneficiaryAdded(_recipient, _percentage, _chainId, _tokenAddress, _shouldSwap, _targetToken);
     }
 
     /**
@@ -135,14 +146,24 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param _recipient ENS name (e.g., "vitalik.eth") or address as hex string
      * @param _percentage Distribution percentage in basis points
      * @param _chainId Chain ID where recipient should receive funds
+     * @param _tokenAddress Token to receive (zero address for native ETH)
+     * @param _shouldSwap Whether to swap before sending
+     * @param _targetToken Target token if swapping (zero address if not swapping)
      */
     function addBeneficiaryENS(
         string memory _recipient,
         uint256 _percentage,
-        uint256 _chainId
+        uint256 _chainId,
+        address _tokenAddress,
+        bool _shouldSwap,
+        address _targetToken
     ) external onlyOwner {
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
+
+        if (_shouldSwap) {
+            require(_targetToken != address(0), "Invalid target token");
+        }
 
         address recipientAddress;
 
@@ -160,10 +181,17 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         }
 
         beneficiaries.push(
-            Beneficiary({recipient: recipientAddress, percentage: _percentage, chainId: _chainId})
+            Beneficiary({
+                recipient: recipientAddress,
+                percentage: _percentage,
+                chainId: _chainId,
+                tokenAddress: _tokenAddress,
+                shouldSwap: _shouldSwap,
+                targetToken: _targetToken
+            })
         );
 
-        emit BeneficiaryAdded(recipientAddress, _percentage, _chainId);
+        emit BeneficiaryAdded(recipientAddress, _percentage, _chainId, _tokenAddress, _shouldSwap, _targetToken);
     }
 
     /**
@@ -210,50 +238,28 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Add token configuration for monitoring and swapping
-     * @param _tokenAddress Token contract address
-     * @param _chainId Chain ID where token exists
-     * @param _shouldSwap Whether to swap this token to target token
-     * @param _targetToken Target token address (if shouldSwap is true)
-     */
-    function addTokenConfig(
-        address _tokenAddress,
-        uint256 _chainId,
-        bool _shouldSwap,
-        address _targetToken
-    ) external onlyOwner {
-        require(_tokenAddress != address(0), "Invalid token address");
-        require(status == Status.Active, "Contract is inactive");
-
-        if (_shouldSwap) {
-            require(_targetToken != address(0), "Invalid target token");
-        }
-
-        tokenConfigs.push(
-            TokenConfig({
-                tokenAddress: _tokenAddress,
-                chainId: _chainId,
-                shouldSwap: _shouldSwap,
-                targetToken: _targetToken
-            })
-        );
-
-        emit TokenConfigAdded(_tokenAddress, _chainId, _shouldSwap, _targetToken);
-    }
-
-    /**
-     * @notice Batch add multiple beneficiaries
+     * @notice Batch add multiple beneficiaries with token swap configs
      * @param _recipients Array of recipient addresses
      * @param _percentages Array of distribution percentages in basis points
      * @param _chainIds Array of chain IDs where recipients should receive funds
+     * @param _tokenAddresses Array of token addresses (zero address for native ETH)
+     * @param _shouldSwaps Array indicating whether to swap each token
+     * @param _targetTokens Array of target token addresses (if shouldSwap is true)
      */
     function addBeneficiariesBatch(
         address[] calldata _recipients,
         uint256[] calldata _percentages,
-        uint256[] calldata _chainIds
+        uint256[] calldata _chainIds,
+        address[] calldata _tokenAddresses,
+        bool[] calldata _shouldSwaps,
+        address[] calldata _targetTokens
     ) external onlyOwner {
         require(
-            _recipients.length == _percentages.length && _recipients.length == _chainIds.length,
+            _recipients.length == _percentages.length &&
+            _recipients.length == _chainIds.length &&
+            _recipients.length == _tokenAddresses.length &&
+            _recipients.length == _shouldSwaps.length &&
+            _recipients.length == _targetTokens.length,
             "Array length mismatch"
         );
         require(status == Status.Active, "Contract is inactive");
@@ -262,63 +268,32 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             require(_recipients[i] != address(0), "Invalid recipient");
             require(_percentages[i] > 0 && _percentages[i] <= BASIS_POINTS, "Invalid percentage");
 
-            beneficiaries.push(
-                Beneficiary({
-                    recipient: _recipients[i],
-                    percentage: _percentages[i],
-                    chainId: _chainIds[i]
-                })
-            );
-
-            emit BeneficiaryAdded(_recipients[i], _percentages[i], _chainIds[i]);
-        }
-    }
-
-    /**
-     * @notice Batch add multiple token configurations
-     * @param _tokenAddresses Array of token contract addresses
-     * @param _chainIds Array of chain IDs where tokens exist
-     * @param _shouldSwaps Array indicating whether to swap each token
-     * @param _targetTokens Array of target token addresses (if shouldSwap is true)
-     */
-    function addTokenConfigsBatch(
-        address[] calldata _tokenAddresses,
-        uint256[] calldata _chainIds,
-        bool[] calldata _shouldSwaps,
-        address[] calldata _targetTokens
-    ) external onlyOwner {
-        require(
-            _tokenAddresses.length == _chainIds.length &&
-                _tokenAddresses.length == _shouldSwaps.length &&
-                _tokenAddresses.length == _targetTokens.length,
-            "Array length mismatch"
-        );
-        require(status == Status.Active, "Contract is inactive");
-
-        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
-            require(_tokenAddresses[i] != address(0), "Invalid token address");
-
             if (_shouldSwaps[i]) {
                 require(_targetTokens[i] != address(0), "Invalid target token");
             }
 
-            tokenConfigs.push(
-                TokenConfig({
-                    tokenAddress: _tokenAddresses[i],
+            beneficiaries.push(
+                Beneficiary({
+                    recipient: _recipients[i],
+                    percentage: _percentages[i],
                     chainId: _chainIds[i],
+                    tokenAddress: _tokenAddresses[i],
                     shouldSwap: _shouldSwaps[i],
                     targetToken: _targetTokens[i]
                 })
             );
 
-            emit TokenConfigAdded(
-                _tokenAddresses[i],
+            emit BeneficiaryAdded(
+                _recipients[i],
+                _percentages[i],
                 _chainIds[i],
+                _tokenAddresses[i],
                 _shouldSwaps[i],
                 _targetTokens[i]
             );
         }
     }
+
 
     /**
      * @notice Update the last activity timestamp (called by keeper or oracle)
@@ -364,115 +339,212 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Get USDC address for current chain
+     * @return USDC token address
+     */
+    function _getUSDCAddress() internal view returns (address) {
+        if (block.chainid == 1) {
+            // Ethereum Mainnet
+            return 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+        } else if (block.chainid == 11155111) {
+            // Sepolia
+            return 0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238;
+        } else if (block.chainid == 8453) {
+            // Base Mainnet
+            return 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+        } else if (block.chainid == 84532) {
+            // Base Sepolia
+            return 0x036CbD53842c5426634e7929541eC2318f3dCF7e;
+        }
+        return address(0);
+    }
+
+    /**
+     * @notice Pull tokens from mainWallet using spending cap allowance
+     * @param token Token address to pull
+     * @param amount Amount to pull
+     * @return Amount actually pulled
+     */
+    function _pullTokensFromMainWallet(address token, uint256 amount) internal returns (uint256) {
+        if (token == address(0)) {
+            // Native ETH - cannot pull, user must send ETH to escrow
+            return 0;
+        }
+
+        IERC20 tokenContract = IERC20(token);
+        uint256 allowance = tokenContract.allowance(mainWallet, address(this));
+        uint256 balance = tokenContract.balanceOf(mainWallet);
+        
+        uint256 toPull = amount < allowance ? amount : allowance;
+        toPull = toPull < balance ? toPull : balance;
+        
+        if (toPull > 0) {
+            SafeERC20.safeTransferFrom(tokenContract, mainWallet, address(this), toPull);
+        }
+        
+        return toPull;
+    }
+
+    /**
      * @notice Execute the escrow transfer
      * @dev Can be called by anyone when conditions are met
-     * @dev This function checks conditions and executes transfers/swaps
+     * @dev Detects funds in mainWallet, pulls them using spending caps, swaps per-beneficiary, and distributes
      */
     function run() external nonReentrant {
         require(status == Status.Active, "Contract is inactive");
         require(canExecute(), "Execution conditions not met");
         require(beneficiaries.length > 0, "No beneficiaries configured");
-        require(tokenConfigs.length > 0, "No tokens configured");
 
         emit ExecutionTriggered(msg.sender);
 
-        // Process each token configuration
-        for (uint256 i = 0; i < tokenConfigs.length; i++) {
-            TokenConfig memory config = tokenConfigs[i];
-
-            // Only process tokens on the current chain
-            if (config.chainId != block.chainid) {
-                continue;
+        // Detect funds: ETH in escrow (user must send ETH to escrow) and USDC in mainWallet
+        uint256 ethBalance = address(this).balance;
+        address usdcAddress = _getUSDCAddress();
+        
+        // Pull USDC from mainWallet for beneficiaries who want USDC directly
+        if (usdcAddress != address(0)) {
+            uint256 usdcBalanceInMainWallet = IERC20(usdcAddress).balanceOf(mainWallet);
+            
+            if (usdcBalanceInMainWallet > 0) {
+                // Calculate total USDC needed for beneficiaries who want USDC directly (not swapped)
+                uint256 totalUSDCNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == usdcAddress &&
+                        !beneficiaries[i].shouldSwap) {
+                        // Beneficiary wants USDC directly - calculate their portion
+                        totalUSDCNeeded += (usdcBalanceInMainWallet * beneficiaries[i].percentage) / BASIS_POINTS;
+                    }
+                }
+                
+                // Pull USDC from mainWallet using spending cap
+                if (totalUSDCNeeded > 0) {
+                    _pullTokensFromMainWallet(usdcAddress, totalUSDCNeeded);
+                }
             }
+        }
 
-            IERC20 token = IERC20(config.tokenAddress);
-            uint256 balance = token.balanceOf(address(this));
+        // Process ETH (native token in escrow) - for beneficiaries who want ETH or ETH swapped
+        if (ethBalance > 0) {
+            _processTokenForBeneficiaries(address(0), ethBalance);
+        }
 
-            if (balance == 0) {
-                continue;
+        // Process USDC (now in escrow after pulling) - for beneficiaries who want USDC directly
+        if (usdcAddress != address(0)) {
+            uint256 usdcInEscrow = IERC20(usdcAddress).balanceOf(address(this));
+            if (usdcInEscrow > 0) {
+                _processTokenForBeneficiaries(usdcAddress, usdcInEscrow);
             }
-
-            // Swap token if configured
-            if (config.shouldSwap && address(coinbaseTrade) != address(0)) {
-                balance = _executeSwap(config, balance);
-            }
-
-            // Distribute to beneficiaries
-            _distributeToBeneficiaries(config.tokenAddress, balance, config.chainId);
         }
     }
 
     /**
-     * @notice Execute a token swap via Coinbase Trade
-     * @param config Token configuration
-     * @param amountIn Amount of input token
-     * @return amountOut Amount of output token received
+     * @notice Process a token for all beneficiaries on current chain
+     * @param tokenAddress Token to process (zero address for native ETH)
+     * @param totalAmount Total amount available
      */
-    function _executeSwap(
-        TokenConfig memory config,
+    function _processTokenForBeneficiaries(address tokenAddress, uint256 totalAmount) internal {
+        for (uint256 i = 0; i < beneficiaries.length; i++) {
+            Beneficiary memory beneficiary = beneficiaries[i];
+
+            // Only process beneficiaries on the current chain
+            if (beneficiary.chainId != block.chainid) {
+                continue;
+            }
+
+            // Skip if beneficiary doesn't want this token
+            if (beneficiary.tokenAddress != tokenAddress) {
+                continue;
+            }
+
+            // Calculate beneficiary's portion
+            uint256 beneficiaryAmount = (totalAmount * beneficiary.percentage) / BASIS_POINTS;
+
+            if (beneficiaryAmount == 0) {
+                continue;
+            }
+
+            // Swap if beneficiary wants swap
+            if (beneficiary.shouldSwap && beneficiary.targetToken != address(0) && address(coinbaseTrade) != address(0)) {
+                uint256 swappedAmount = _executeSwapForBeneficiary(
+                    tokenAddress,
+                    beneficiary.targetToken,
+                    beneficiaryAmount
+                );
+                
+                // Distribute swapped tokens
+                _distributeToBeneficiary(beneficiary.targetToken, beneficiary.recipient, swappedAmount);
+            } else {
+                // Distribute directly without swap
+                _distributeToBeneficiary(tokenAddress, beneficiary.recipient, beneficiaryAmount);
+            }
+        }
+    }
+
+    /**
+     * @notice Execute swap for a beneficiary's portion
+     * @param tokenIn Input token address (zero address for native ETH)
+     * @param tokenOut Output token address
+     * @param amountIn Amount to swap
+     * @return amountOut Amount received after swap
+     */
+    function _executeSwapForBeneficiary(
+        address tokenIn,
+        address tokenOut,
         uint256 amountIn
     ) internal returns (uint256 amountOut) {
         require(address(coinbaseTrade) != address(0), "Coinbase Trade not set");
 
-        IERC20 tokenIn = IERC20(config.tokenAddress);
-        // Use forceApprove from SafeERC20 which handles both setting and resetting approval
-        SafeERC20.forceApprove(tokenIn, address(coinbaseTrade), amountIn);
-
         ICoinbaseTrade.SwapParams memory params = ICoinbaseTrade.SwapParams({
-            tokenIn: config.tokenAddress,
-            tokenOut: config.targetToken,
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
             amountIn: amountIn,
             minAmountOut: 0, // Could add slippage protection
             recipient: address(this)
         });
 
-        amountOut = coinbaseTrade.executeSwap(params);
+        if (tokenIn == address(0)) {
+            // Native ETH swap - send ETH value with the call
+            amountOut = coinbaseTrade.executeSwap{value: amountIn}(params);
+        } else {
+            // ERC20 swap - approve and call
+            IERC20 tokenContract = IERC20(tokenIn);
+            SafeERC20.forceApprove(tokenContract, address(coinbaseTrade), amountIn);
+            amountOut = coinbaseTrade.executeSwap(params);
+        }
 
-        emit SwapExecuted(config.tokenAddress, config.targetToken, amountIn, amountOut);
+        emit SwapExecuted(tokenIn, tokenOut, amountIn, amountOut);
 
         return amountOut;
     }
 
     /**
-     * @notice Distribute funds to beneficiaries according to percentages
-     * @param tokenAddress Token to distribute
-     * @param totalAmount Total amount to distribute
-     * @param chainId Chain ID for distribution
+     * @notice Distribute tokens to a single beneficiary
+     * @param tokenAddress Token to distribute (zero address for native ETH)
+     * @param recipient Beneficiary address
+     * @param amount Amount to distribute
      */
-    function _distributeToBeneficiaries(
+    function _distributeToBeneficiary(
         address tokenAddress,
-        uint256 totalAmount,
-        uint256 chainId
+        address recipient,
+        uint256 amount
     ) internal {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 distributed = 0;
-
-        for (uint256 i = 0; i < beneficiaries.length; i++) {
-            Beneficiary memory beneficiary = beneficiaries[i];
-
-            // Only distribute to beneficiaries on the same chain
-            if (beneficiary.chainId != chainId) {
-                continue;
-            }
-
-            uint256 amount = (totalAmount * beneficiary.percentage) / BASIS_POINTS;
-
-            if (amount > 0) {
-                token.safeTransfer(beneficiary.recipient, amount);
-                distributed += amount;
-
-                emit FundsTransferred(tokenAddress, beneficiary.recipient, amount, chainId);
-            }
+        if (amount == 0) {
+            return;
         }
 
-        // Handle any remainder due to rounding
-        uint256 remainder = totalAmount - distributed;
-        if (remainder > 0 && beneficiaries.length > 0) {
-            // Send remainder to first beneficiary
-            token.safeTransfer(beneficiaries[0].recipient, remainder);
-            emit FundsTransferred(tokenAddress, beneficiaries[0].recipient, remainder, chainId);
+        if (tokenAddress == address(0)) {
+            // Native ETH distribution
+            payable(recipient).transfer(amount);
+        } else {
+            // ERC20 distribution
+            IERC20 token = IERC20(tokenAddress);
+            SafeERC20.safeTransfer(token, recipient, amount);
         }
+
+        emit FundsTransferred(tokenAddress, recipient, amount, block.chainid);
     }
+
 
     /**
      * @notice Get all beneficiaries
@@ -483,11 +555,12 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Get all token configurations
-     * @return Array of token config structs
+     * @notice Get all token configurations (deprecated - token configs are now per-beneficiary)
+     * @return Empty array (for backward compatibility)
      */
-    function getTokenConfigs() external view returns (TokenConfig[] memory) {
-        return tokenConfigs;
+    function getTokenConfigs() external pure returns (address[] memory, uint256[] memory, bool[] memory, address[] memory) {
+        // Return empty arrays for backward compatibility
+        return (new address[](0), new uint256[](0), new bool[](0), new address[](0));
     }
 
     /**

@@ -23,8 +23,10 @@
 
   // USDC token addresses
   const USDC_ADDRESSES: Record<number, Address> = {
-    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // Ethereum
-    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // Base
+    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // Ethereum Mainnet
+    11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Sepolia
+    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // Base Mainnet
+    84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address, // Base Sepolia
   };
 
   let creating = false;
@@ -114,45 +116,33 @@
       const mainWalletToUse = mainWallet || ($wallet.address as string);
       const inactivityPeriodSeconds = inactivityPeriod * 24 * 60 * 60;
 
-      // Convert beneficiary rows to config format (recipients can be ENS names or addresses)
+      // Convert beneficiary rows to config format with token swap configs
       const beneficiariesToUse: BeneficiaryConfig[] = beneficiaryRows
         .filter(row => row.address && row.percentage > 0)
-        .map(row => ({
-          recipient: row.address, // Can be ENS name or address string
-          percentage: row.percentage,
-          chainId: row.chainId as any,
-        }));
+        .map(row => {
+          // Map tokenType to token swap config
+          const tokenAddress = '0x0000000000000000000000000000000000000000' as Address; // Native ETH
+          let shouldSwap = false;
+          let targetToken: Address | undefined = undefined;
 
-      // Build token configs based on beneficiary selections
-      // Group by chainId and tokenType to create token configs
-      const tokenConfigs: TokenConfig[] = [];
-      const chainTokenMap = new Map<string, { chainId: number; tokenType: 'native' | 'usdc' }>();
-
-      // Collect unique chainId + tokenType combinations from beneficiaries
-      // Match beneficiaries to rows by index since validBeneficiaries maintains order
-      beneficiaryRows.forEach(row => {
-        if (row.address && row.percentage > 0 && row.tokenType) {
-          const key = `${row.chainId}-${row.tokenType}`;
-          if (!chainTokenMap.has(key)) {
-            chainTokenMap.set(key, { chainId: row.chainId, tokenType: row.tokenType });
+          if (row.tokenType === 'usdc') {
+            const usdcAddress = USDC_ADDRESSES[row.chainId];
+            if (usdcAddress) {
+              shouldSwap = true;
+              targetToken = usdcAddress;
+            }
           }
-        }
-      });
+          // If tokenType is 'native', shouldSwap stays false and targetToken stays undefined
 
-      // Create token configs for chains that need USDC swap
-      chainTokenMap.forEach(({ chainId, tokenType }) => {
-        if (tokenType === 'usdc') {
-          const usdcAddress = USDC_ADDRESSES[chainId];
-          if (usdcAddress) {
-            tokenConfigs.push({
-              tokenAddress: '0x0000000000000000000000000000000000000000' as Address, // Native token
-              chainId: chainId as SupportedChainId,
-              shouldSwap: true,
-              targetToken: usdcAddress,
-            });
-          }
-        }
-      });
+          return {
+            recipient: row.address, // Can be ENS name or address string
+            percentage: row.percentage,
+            chainId: row.chainId as any,
+            tokenAddress,
+            shouldSwap,
+            targetToken,
+          };
+        });
 
       // Ensure we have chainId before proceeding
       if (!$wallet.chainId) {
@@ -187,7 +177,6 @@
           mainWallet: mainWalletToUse,
           inactivityPeriod: inactivityPeriodSeconds,
           beneficiaries: beneficiariesToUse,
-          tokenConfigs,
         },
         $wallet.chainId as any,
         (message: string, type: 'info' | 'success' | 'error' = 'info') => {
