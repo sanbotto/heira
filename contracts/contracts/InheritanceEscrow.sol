@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ICoinbaseTrade.sol";
+import "./libraries/ENSResolver.sol";
 
 /**
  * @title InheritanceEscrow
@@ -130,6 +131,85 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Add a beneficiary with distribution percentage (supports ENS names)
+     * @param _recipient ENS name (e.g., "vitalik.eth") or address as hex string
+     * @param _percentage Distribution percentage in basis points
+     * @param _chainId Chain ID where recipient should receive funds
+     */
+    function addBeneficiaryENS(
+        string memory _recipient,
+        uint256 _percentage,
+        uint256 _chainId
+    ) external onlyOwner {
+        require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
+        require(status == Status.Active, "Contract is inactive");
+
+        address recipientAddress;
+
+        // Check if it's an ENS name
+        if (ENSResolver.isENSName(_recipient)) {
+            recipientAddress = ENSResolver.resolve(_recipient);
+            require(
+                recipientAddress != address(0),
+                "ENS name resolution failed."
+            );
+        } else {
+            // Try to parse as address (hex string)
+            recipientAddress = _parseAddress(_recipient);
+            require(recipientAddress != address(0), "Invalid address format");
+        }
+
+        beneficiaries.push(
+            Beneficiary({recipient: recipientAddress, percentage: _percentage, chainId: _chainId})
+        );
+
+        emit BeneficiaryAdded(recipientAddress, _percentage, _chainId);
+    }
+
+    /**
+     * @notice Parse a hex string to an address
+     * @param _addressString Hex string representation of address
+     * @return Parsed address
+     */
+    function _parseAddress(string memory _addressString) internal pure returns (address) {
+        bytes memory addressBytes = bytes(_addressString);
+
+        // Check if it starts with "0x" and has correct length (42 chars: 0x + 40 hex)
+        if (addressBytes.length != 42) {
+            return address(0);
+        }
+
+        if (addressBytes[0] != 0x30 || addressBytes[1] != 0x78) {
+            // "0x"
+            return address(0);
+        }
+
+        // Parse hex string to address
+        uint160 result = 0;
+        for (uint256 i = 2; i < 42; i++) {
+            uint8 char = uint8(addressBytes[i]);
+            uint8 value;
+
+            if (char >= 0x30 && char <= 0x39) {
+                // '0'-'9'
+                value = char - 0x30;
+            } else if (char >= 0x41 && char <= 0x46) {
+                // 'A'-'F'
+                value = char - 0x37;
+            } else if (char >= 0x61 && char <= 0x66) {
+                // 'a'-'f'
+                value = char - 0x57;
+            } else {
+                return address(0);
+            }
+
+            result = result * 16 + value;
+        }
+
+        return address(result);
+    }
+
+    /**
      * @notice Add token configuration for monitoring and swapping
      * @param _tokenAddress Token contract address
      * @param _chainId Chain ID where token exists
@@ -159,6 +239,85 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         );
 
         emit TokenConfigAdded(_tokenAddress, _chainId, _shouldSwap, _targetToken);
+    }
+
+    /**
+     * @notice Batch add multiple beneficiaries
+     * @param _recipients Array of recipient addresses
+     * @param _percentages Array of distribution percentages in basis points
+     * @param _chainIds Array of chain IDs where recipients should receive funds
+     */
+    function addBeneficiariesBatch(
+        address[] calldata _recipients,
+        uint256[] calldata _percentages,
+        uint256[] calldata _chainIds
+    ) external onlyOwner {
+        require(
+            _recipients.length == _percentages.length && _recipients.length == _chainIds.length,
+            "Array length mismatch"
+        );
+        require(status == Status.Active, "Contract is inactive");
+
+        for (uint256 i = 0; i < _recipients.length; i++) {
+            require(_recipients[i] != address(0), "Invalid recipient");
+            require(_percentages[i] > 0 && _percentages[i] <= BASIS_POINTS, "Invalid percentage");
+
+            beneficiaries.push(
+                Beneficiary({
+                    recipient: _recipients[i],
+                    percentage: _percentages[i],
+                    chainId: _chainIds[i]
+                })
+            );
+
+            emit BeneficiaryAdded(_recipients[i], _percentages[i], _chainIds[i]);
+        }
+    }
+
+    /**
+     * @notice Batch add multiple token configurations
+     * @param _tokenAddresses Array of token contract addresses
+     * @param _chainIds Array of chain IDs where tokens exist
+     * @param _shouldSwaps Array indicating whether to swap each token
+     * @param _targetTokens Array of target token addresses (if shouldSwap is true)
+     */
+    function addTokenConfigsBatch(
+        address[] calldata _tokenAddresses,
+        uint256[] calldata _chainIds,
+        bool[] calldata _shouldSwaps,
+        address[] calldata _targetTokens
+    ) external onlyOwner {
+        require(
+            _tokenAddresses.length == _chainIds.length &&
+                _tokenAddresses.length == _shouldSwaps.length &&
+                _tokenAddresses.length == _targetTokens.length,
+            "Array length mismatch"
+        );
+        require(status == Status.Active, "Contract is inactive");
+
+        for (uint256 i = 0; i < _tokenAddresses.length; i++) {
+            require(_tokenAddresses[i] != address(0), "Invalid token address");
+
+            if (_shouldSwaps[i]) {
+                require(_targetTokens[i] != address(0), "Invalid target token");
+            }
+
+            tokenConfigs.push(
+                TokenConfig({
+                    tokenAddress: _tokenAddresses[i],
+                    chainId: _chainIds[i],
+                    shouldSwap: _shouldSwaps[i],
+                    targetToken: _targetTokens[i]
+                })
+            );
+
+            emit TokenConfigAdded(
+                _tokenAddresses[i],
+                _chainIds[i],
+                _shouldSwaps[i],
+                _targetTokens[i]
+            );
+        }
     }
 
     /**
