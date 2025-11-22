@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  backend:
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/sanbotto/heira/backend:latest
+    container_name: heira-backend
+
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      # Server Configuration
+      PORT: ${PORT:-3001}
+
+      # Private key for signing transactions
+      PRIVATE_KEY: ${PRIVATE_KEY}
+
+      # Enable keeper service
+      ENABLE_KEEPER: ${ENABLE_KEEPER:-true}
+
+      # Keeper Configuration
+      # Format: NETWORK_NAME:FACTORY_ADDRESS:RPC_URL
+      # Multiple networks separated by commas
+      KEEPER_NETWORKS: ${KEEPER_NETWORKS:-}
+      KEEPER_CHECK_INTERVAL_MS: ${KEEPER_CHECK_INTERVAL_MS:-300000}
+
+      # RPC URLs for contract verification
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL:-https://rpc.sepolia.org}
+      BASE_SEPOLIA_RPC_URL: ${BASE_SEPOLIA_RPC_URL:-https://sepolia.base.org}
+      MAINNET_RPC_URL: ${MAINNET_RPC_URL:-https://eth.llamarpc.com}
+      BASE_RPC_URL: ${BASE_RPC_URL:-https://mainnet.base.org}
+
+      # API Keys
+      ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - heira-network
+
+networks:
+  heira-network:
+    driver: bridge
