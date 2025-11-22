@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import TokenList from '../components/TokenList.svelte';
   import Toast from '../lib/components/Toast.svelte';
+  import ConfirmationModal from '../lib/components/ConfirmationModal.svelte';
   import { wallet } from '../lib/stores/wallet';
   import { goto } from '$app/navigation';
   import {
@@ -22,6 +23,8 @@
 
   let deactivating: Set<string> = new Set();
   let deactivationTxHashes: Map<string, string> = new Map();
+  let escrowToDeactivate: string | null = null;
+  let showConfirmModal = false;
 
   let toastMessage = '';
   let toastType: 'error' | 'success' | 'info' = 'info';
@@ -71,6 +74,13 @@
           };
         })
       );
+
+      // Sort escrows: active (status === 0) first, then inactive
+      escrows.sort((a, b) => {
+        if (a.status === 0 && b.status !== 0) return -1;
+        if (a.status !== 0 && b.status === 0) return 1;
+        return 0;
+      });
     } catch (error) {
       console.error('Failed to load escrows:', error);
     }
@@ -148,7 +158,25 @@
     return 'time-ok';
   }
 
-  async function handleDeactivate(escrowAddress: string) {
+  function handleDeactivateClick(escrowAddress: string) {
+    escrowToDeactivate = escrowAddress;
+    showConfirmModal = true;
+  }
+
+  function handleConfirmDeactivate() {
+    showConfirmModal = false;
+    if (escrowToDeactivate) {
+      performDeactivate(escrowToDeactivate);
+      escrowToDeactivate = null;
+    }
+  }
+
+  function handleCancelDeactivate() {
+    showConfirmModal = false;
+    escrowToDeactivate = null;
+  }
+
+  async function performDeactivate(escrowAddress: string) {
     if (!$wallet.chainId) return;
 
     deactivating.add(escrowAddress);
@@ -228,12 +256,7 @@
               {#each escrows as escrow}
                 <div class="escrow-item">
                   <div class="escrow-header">
-                    <a
-                      href={getExplorerUrl(escrow.address)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="escrow-address text-mono"
-                    >
+                    <a href="/escrows/{escrow.address}" class="escrow-address text-mono">
                       {escrow.address}
                     </a>
                     <span class="status-badge {getStatusColor(escrow.status)}">
@@ -266,7 +289,7 @@
                         {:else}
                           <button
                             class="btn btn-secondary btn-sm"
-                            on:click={() => handleDeactivate(escrow.address)}
+                            on:click={() => handleDeactivateClick(escrow.address)}
                           >
                             Deactivate
                           </button>
@@ -300,6 +323,17 @@
     </div>
   {/if}
 </div>
+
+<ConfirmationModal
+  title="Deactivate Escrow"
+  message="Are you sure you want to deactivate this escrow? This action cannot be undone."
+  confirmText="Deactivate"
+  cancelText="Cancel"
+  confirmButtonClass="btn-secondary"
+  isOpen={showConfirmModal}
+  onConfirm={handleConfirmDeactivate}
+  onCancel={handleCancelDeactivate}
+/>
 
 {#if showToast}
   <Toast message={toastMessage} type={toastType} onClose={() => (showToast = false)} />

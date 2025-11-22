@@ -133,6 +133,41 @@ const ESCROW_ABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'getBeneficiaries',
+    outputs: [
+      {
+        components: [
+          { name: 'recipient', type: 'address' },
+          { name: 'percentage', type: 'uint256' },
+          { name: 'chainId', type: 'uint256' },
+        ],
+        name: '',
+        type: 'tuple[]',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getTokenConfigs',
+    outputs: [
+      {
+        components: [
+          { name: 'tokenAddress', type: 'address' },
+          { name: 'chainId', type: 'uint256' },
+          { name: 'shouldSwap', type: 'bool' },
+          { name: 'targetToken', type: 'address' },
+        ],
+        name: '',
+        type: 'tuple[]',
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
 ] as const;
 
 export interface BeneficiaryConfig {
@@ -163,13 +198,13 @@ function getNetworkName(chainId: SupportedChainId): string {
     1: 'mainnet',
     11155111: 'sepolia',
     8453: 'base',
-    84532: 'baseSepolia',
   };
   return networkMap[chainId] || 'sepolia';
 }
 
 /**
  * Automatically verify an escrow contract on Etherscan/Basescan
+ * Returns result object with success status and details
  */
 async function verifyEscrowContract(
   escrowAddress: Address,
@@ -177,7 +212,7 @@ async function verifyEscrowContract(
   inactivityPeriod: number,
   owner: Address,
   chainId: SupportedChainId
-): Promise<void> {
+): Promise<{ success: boolean; alreadyVerified?: boolean; message: string; explorerUrl?: string }> {
   // Ensure mainWallet is an address string (not ENS name)
   const mainWalletAddress =
     typeof mainWallet === 'string' && mainWallet.startsWith('0x')
@@ -216,17 +251,20 @@ async function verifyEscrowContract(
 
     const result = await response.json();
 
-    if (!result.success) {
-      throw new Error(result.message || result.details || 'Verification failed');
-    }
-
-    if (result.explorerUrl) {
-      console.log(`✅ Escrow verified: ${result.explorerUrl}`);
-    }
+    // Return the result object instead of throwing
+    return {
+      success: result.success || false,
+      alreadyVerified: result.alreadyVerified || false,
+      message: result.message || 'Verification completed',
+      explorerUrl: result.explorerUrl,
+    };
   } catch (error) {
-    // Re-throw with more context, but include the original error details
+    // Return error result instead of throwing
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to verify escrow: ${errorMessage}`);
+    return {
+      success: false,
+      message: `Failed to verify escrow: ${errorMessage}`,
+    };
   }
 }
 
@@ -237,9 +275,10 @@ async function verifyEscrowContract(
 export async function createEscrow(
   factoryAddress: Address,
   config: EscrowConfig,
-  chainId: SupportedChainId
+  chainId: SupportedChainId,
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
 ): Promise<Address> {
-  const walletClient = getWalletClient(chainId);
+  const walletClient = await getWalletClient(chainId);
   const publicClient = getPublicClient(chainId);
 
   const [account] = await walletClient.getAddresses();
@@ -480,6 +519,7 @@ export async function createEscrow(
     throw new Error(revertReason);
   }
 
+  onProgress?.('Please sign the transaction in your wallet...', 'info');
   const hash = await walletClient.writeContract({
     account,
     address: factoryAddress,
@@ -488,6 +528,7 @@ export async function createEscrow(
     args: [config.mainWallet, BigInt(config.inactivityPeriod)],
   });
 
+  onProgress?.('Transaction sent! Waiting for confirmation...', 'info');
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
   // Check if transaction succeeded
@@ -614,6 +655,7 @@ export async function createEscrow(
         `📝 Adding ${addressBeneficiaries.length} address-based beneficiaries to escrow:`,
         escrowAddr
       );
+      onProgress?.(`Adding ${addressBeneficiaries.length} beneficiaries... Please sign.`, 'info');
       const beneficiaryHash = await walletClient.writeContract({
         account,
         address: escrowAddr,
@@ -622,12 +664,14 @@ export async function createEscrow(
         args: [recipients, percentages, chainIds],
       });
       console.log('   Transaction hash:', beneficiaryHash);
+      onProgress?.('Waiting for beneficiary transaction confirmation...', 'info');
       await publicClient.waitForTransactionReceipt({ hash: beneficiaryHash });
     }
 
     // Add ENS-based beneficiaries individually (contract handles ENS resolution)
     for (const beneficiary of ensBeneficiaries) {
       console.log(`📝 Adding ENS beneficiary ${beneficiary.recipient} to escrow:`, escrowAddr);
+      onProgress?.(`Adding ENS beneficiary ${beneficiary.recipient}... Please sign.`, 'info');
       const ensHash = await walletClient.writeContract({
         account,
         address: escrowAddr,
@@ -640,6 +684,7 @@ export async function createEscrow(
         ],
       });
       console.log('   Transaction hash:', ensHash);
+      onProgress?.('Waiting for ENS beneficiary transaction confirmation...', 'info');
       await publicClient.waitForTransactionReceipt({ hash: ensHash });
     }
   }
@@ -660,6 +705,10 @@ export async function createEscrow(
 
     // Batch add all token configs in a single transaction
     console.log(`📝 Adding ${config.tokenConfigs.length} token configs to escrow:`, escrowAddr);
+    onProgress?.(
+      `Adding ${config.tokenConfigs.length} token configurations... Please sign.`,
+      'info'
+    );
     const tokenHash = await walletClient.writeContract({
       account,
       address: escrowAddr,
@@ -668,6 +717,7 @@ export async function createEscrow(
       args: [tokenAddresses, chainIds, shouldSwaps, targetTokens],
     });
     console.log('   Transaction hash:', tokenHash);
+    onProgress?.('Waiting for token configuration transaction confirmation...', 'info');
     await publicClient.waitForTransactionReceipt({ hash: tokenHash });
   }
 
@@ -681,28 +731,59 @@ export async function createEscrow(
       ? config.mainWallet
       : config.mainWallet);
 
-  // Wait a bit for the contract to be indexed on Etherscan before verifying
+  // Wait longer for the contract to be indexed on Etherscan before verifying
+  // Etherscan needs time to index the contract bytecode
   console.log('Waiting for contract to be indexed on Etherscan...');
-  await new Promise(resolve => setTimeout(resolve, 5000));
+  onProgress?.(
+    'Waiting for contract to be indexed on Etherscan (this may take up to 30 seconds)...',
+    'info'
+  );
+  await new Promise(resolve => setTimeout(resolve, 10000)); // Increased to 10 seconds
 
   try {
     console.log('Starting automatic verification...');
-    await verifyEscrowContract(
+    onProgress?.('Verifying contract on Etherscan...', 'info');
+    const result = await verifyEscrowContract(
       escrowAddr,
       mainWalletForVerification,
       config.inactivityPeriod,
       account,
       chainId
     );
-    console.log('✅ Escrow contract verified successfully!');
+    
+    // Check if verification was successful or already verified
+    if (result.success || result.alreadyVerified) {
+      console.log('✅ Escrow contract verified successfully!');
+      const message = result.alreadyVerified 
+        ? 'Contract is already verified on Etherscan!'
+        : 'Contract verified successfully!';
+      onProgress?.(message, 'success');
+    } else {
+      // Verification failed, but don't fail the entire operation
+      console.warn('⚠️ Automatic verification failed:', result.message);
+      onProgress?.(`Verification had issues: ${result.message}. Contract may still be verified - check Etherscan.`, 'info');
+    }
   } catch (error) {
     // Don't fail the entire operation if verification fails
     // But log it prominently so user knows
-    console.error('⚠️ Automatic verification failed:', error);
-    console.error('You can verify manually using:');
-    console.error(
-      `  CONTRACT_ADDRESS=${escrowAddr} MAIN_WALLET=${mainWalletForVerification} INACTIVITY_PERIOD=${config.inactivityPeriod} OWNER=${account} npx hardhat run scripts/verify-escrow.js --network ${getNetworkName(chainId)}`
-    );
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    
+    // Check if error message indicates contract might be verified anyway
+    const errorLower = errorMsg.toLowerCase();
+    const mightBeVerified = errorLower.includes('already verified') || 
+                           errorLower.includes('bytecode') && errorLower.includes('verified');
+    
+    if (mightBeVerified) {
+      console.log('⚠️ Verification reported issues, but contract may be verified on Etherscan');
+      onProgress?.('Verification had issues, but contract appears to be verified. Please check Etherscan to confirm.', 'info');
+    } else {
+      console.error('⚠️ Automatic verification failed:', error);
+      onProgress?.(`Verification failed: ${errorMsg}. You can verify manually later.`, 'error');
+      console.error('You can verify manually using:');
+      console.error(
+        `  CONTRACT_ADDRESS=${escrowAddr} MAIN_WALLET=${mainWalletForVerification} INACTIVITY_PERIOD=${config.inactivityPeriod} OWNER=${account} npx hardhat run scripts/verify-escrow.js --network ${getNetworkName(chainId)}`
+      );
+    }
   }
 
   return escrowAddr;
@@ -745,7 +826,7 @@ export async function executeEscrow(
   escrowAddress: Address,
   chainId: SupportedChainId
 ): Promise<string> {
-  const walletClient = getWalletClient(chainId);
+  const walletClient = await getWalletClient(chainId);
   const publicClient = getPublicClient(chainId);
   const [account] = await walletClient.getAddresses();
 
@@ -799,7 +880,7 @@ export async function deactivateEscrow(
   escrowAddress: Address,
   chainId: SupportedChainId
 ): Promise<string> {
-  const walletClient = getWalletClient(chainId);
+  const walletClient = await getWalletClient(chainId);
   const [account] = await walletClient.getAddresses();
 
   const hash = await walletClient.writeContract({
@@ -810,4 +891,45 @@ export async function deactivateEscrow(
   });
 
   return hash;
+}
+
+/**
+ * Get all beneficiaries for an escrow contract
+ */
+export async function getBeneficiaries(
+  escrowAddress: Address,
+  chainId: SupportedChainId
+): Promise<Array<{ recipient: Address; percentage: bigint; chainId: bigint }>> {
+  const publicClient = getPublicClient(chainId);
+  const result = await publicClient.readContract({
+    address: escrowAddress,
+    abi: ESCROW_ABI,
+    functionName: 'getBeneficiaries',
+  });
+
+  return result as Array<{ recipient: Address; percentage: bigint; chainId: bigint }>;
+}
+
+/**
+ * Get all token configurations for an escrow contract
+ */
+export async function getTokenConfigs(
+  escrowAddress: Address,
+  chainId: SupportedChainId
+): Promise<
+  Array<{ tokenAddress: Address; chainId: bigint; shouldSwap: boolean; targetToken: Address }>
+> {
+  const publicClient = getPublicClient(chainId);
+  const result = await publicClient.readContract({
+    address: escrowAddress,
+    abi: ESCROW_ABI,
+    functionName: 'getTokenConfigs',
+  });
+
+  return result as Array<{
+    tokenAddress: Address;
+    chainId: bigint;
+    shouldSwap: boolean;
+    targetToken: Address;
+  }>;
 }
