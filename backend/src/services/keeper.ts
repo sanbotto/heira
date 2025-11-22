@@ -87,7 +87,11 @@ export class KeeperService {
 
       // Execute the escrow
       console.log(`Executing escrow ${escrowAddress} on ${networkName}...`);
-      const escrowWithSigner = escrowContract.connect(signer);
+      const escrowWithSigner = new ethers.Contract(
+        escrowAddress,
+        ESCROW_ABI,
+        signer,
+      );
       const tx = await escrowWithSigner.run();
       console.log(`Transaction sent: ${tx.hash}`);
 
