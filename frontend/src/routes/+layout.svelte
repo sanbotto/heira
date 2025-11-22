@@ -5,9 +5,12 @@
   import ThemeSwitcher from '$lib/components/ThemeSwitcher.svelte';
   import WalletConnect from '../components/WalletConnect.svelte';
   import { goto } from '$app/navigation';
+  import { initializeWallet } from '$lib/wallet';
 
   onMount(() => {
     theme.init();
+    // Initialize wallet connection and restore if previously connected
+    initializeWallet();
   });
 </script>
 
