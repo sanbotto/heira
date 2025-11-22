@@ -9,6 +9,16 @@
 
   import { syncRainbowKitWalletState } from '../lib/wallet-sync';
 
+  let mobileMenuOpen = false;
+
+  function toggleMobileMenu() {
+    mobileMenuOpen = !mobileMenuOpen;
+  }
+
+  function closeMobileMenu() {
+    mobileMenuOpen = false;
+  }
+
   onMount(() => {
     theme.init();
     // Sync RainbowKit wallet state
@@ -26,7 +36,7 @@
           </a>
         </div>
         <div class="nav-links">
-          <a href="/" class="nav-link">Dashboard</a>
+          <a href="/dashboard" class="nav-link">Dashboard</a>
           <a href="/create" class="nav-link">Create Escrow</a>
           <a href="/escrows" class="nav-link">Manage Escrows</a>
         </div>
@@ -34,7 +44,40 @@
           <ThemeSwitcher />
           <WalletConnect />
         </div>
+        <button
+          class="mobile-menu-button"
+          on:click={toggleMobileMenu}
+          aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {#if mobileMenuOpen}
+              <path
+                d="M18 6L6 18M6 6L18 18"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            {:else}
+              <path
+                d="M3 12H21M3 6H21M3 18H21"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            {/if}
+          </svg>
+        </button>
       </nav>
+      {#if mobileMenuOpen}
+        <div class="mobile-menu">
+          <a href="/dashboard" class="mobile-nav-link" on:click={closeMobileMenu}>Dashboard</a>
+          <a href="/create" class="mobile-nav-link" on:click={closeMobileMenu}>Create Escrow</a>
+          <a href="/escrows" class="mobile-nav-link" on:click={closeMobileMenu}>Manage Escrows</a>
+        </div>
+      {/if}
     </header>
 
     <main>
@@ -117,6 +160,48 @@
     gap: 0.75rem;
   }
 
+  .mobile-menu-button {
+    display: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    color: var(--color-text);
+    transition: color 0.15s;
+  }
+
+  .mobile-menu-button:hover {
+    color: var(--color-primary);
+  }
+
+  .mobile-menu-button svg {
+    display: block;
+  }
+
+  .mobile-menu {
+    display: none;
+    flex-direction: column;
+    background: var(--color-background-card);
+    border-top: 1px solid var(--color-border);
+    padding: 1rem;
+    gap: 0.5rem;
+  }
+
+  .mobile-nav-link {
+    display: block;
+    padding: 0.75rem 1rem;
+    text-decoration: none;
+    color: var(--color-text);
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.15s;
+  }
+
+  .mobile-nav-link:hover {
+    background-color: var(--color-background-light);
+    color: var(--color-primary);
+  }
+
   @media (max-width: 879px) {
     nav {
       grid-template-columns: auto 1fr auto;
@@ -135,6 +220,14 @@
     .nav-right {
       width: auto;
       justify-content: flex-end;
+    }
+
+    .mobile-menu-button {
+      display: block;
+    }
+
+    .mobile-menu {
+      display: flex;
     }
   }
 

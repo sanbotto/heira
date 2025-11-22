@@ -1,357 +1,106 @@
-<script lang="ts">
-  import { onMount } from 'svelte';
-  import TokenList from '../components/TokenList.svelte';
-  import Toast from '../lib/components/Toast.svelte';
-  import ConfirmationModal from '../lib/components/ConfirmationModal.svelte';
-  import { wallet } from '../lib/stores/wallet';
-  import { goto } from '$app/navigation';
-  import {
-    getEscrowsByOwner,
-    getEscrowStatus,
-    getTimeUntilExecution,
-    deactivateEscrow,
-  } from '../lib/escrow';
-  import { mainnet, sepolia } from 'viem/chains';
-  import type { Address } from 'viem';
-  import { getPublicClient } from '../lib/wallet';
-
-  let escrows: Array<{
-    address: string;
-    timeUntilExecution: bigint;
-    status: number;
-  }> = [];
-
-  let deactivating: Set<string> = new Set();
-  let deactivationTxHashes: Map<string, string> = new Map();
-  let escrowToDeactivate: string | null = null;
-  let showConfirmModal = false;
-
-  let toastMessage = '';
-  let toastType: 'error' | 'success' | 'info' = 'info';
-  let showToast = false;
-
-  function showToastMessage(message: string, type: 'error' | 'success' | 'info' = 'info') {
-    toastMessage = message;
-    toastType = type;
-    showToast = true;
-  }
-
-  async function loadEscrows() {
-    if (!$wallet.address || !$wallet.chainId) {
-      escrows = [];
-      return;
-    }
-
-    try {
-      // Get factory address based on current chain
-      // Sepolia uses the same env var as Ethereum mainnet
-      const factoryAddress = (
-        $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
-          ? import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM
-          : import.meta.env.VITE_FACTORY_ADDRESS_BASE
-      ) as Address;
-
-      if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
-        return;
-      }
-
-      const escrowAddresses = await getEscrowsByOwner(
-        factoryAddress,
-        $wallet.address,
-        $wallet.chainId
-      );
-
-      escrows = await Promise.all(
-        escrowAddresses.map(async address => {
-          const [status, timeUntilExecution] = await Promise.all([
-            getEscrowStatus(address, $wallet.chainId!),
-            getTimeUntilExecution(address, $wallet.chainId!),
-          ]);
-          return {
-            address,
-            status: Number(status),
-            timeUntilExecution,
-          };
-        })
-      );
-
-      // Sort escrows: active (status === 0) first, then inactive
-      escrows.sort((a, b) => {
-        if (a.status === 0 && b.status !== 0) return -1;
-        if (a.status !== 0 && b.status === 0) return 1;
-        return 0;
-      });
-    } catch (error) {
-      console.error('Failed to load escrows:', error);
-    }
-  }
-
-  // Load escrows when wallet connects
-  $: if ($wallet.isConnected && $wallet.address && $wallet.chainId) {
-    loadEscrows();
-  }
-
-  function getStatusColor(status: number): string {
-    return status === 0 ? 'status-active' : 'status-inactive';
-  }
-
-  function getStatusText(status: number): string {
-    return status === 0 ? 'Active' : 'Inactive';
-  }
-
-  function formatTimeUntilExecution(seconds: bigint, status: number): string {
-    // Inactive escrows return type(uint256).max from getTimeUntilExecution
-    // Check if it's the max value (inactive) or if status is inactive
-    const MAX_UINT256 = BigInt(
-      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
-    );
-    if (status !== 0 || seconds === MAX_UINT256 || seconds > BigInt(Number.MAX_SAFE_INTEGER)) {
-      return 'N/A';
-    }
-
-    if (seconds === BigInt(0)) {
-      return 'Ready to execute';
-    }
-
-    const days = Number(seconds) / (24 * 60 * 60);
-    if (days > 30) {
-      return `${Math.floor(days / 30)} months`;
-    }
-    if (days > 7) {
-      return `${Math.floor(days / 7)} weeks`;
-    }
-    return `${Math.floor(days)} days`;
-  }
-
-  function getExplorerUrl(address: string): string {
-    if (!$wallet.chainId) return '#';
-
-    const baseUrls: Record<number, string> = {
-      1: 'https://etherscan.io/address/',
-      11155111: 'https://sepolia.etherscan.io/address/',
-      8453: 'https://basescan.org/address/',
-      84532: 'https://sepolia.basescan.org/address/',
-    };
-
-    return (baseUrls[$wallet.chainId] || 'https://etherscan.io/address/') + address + '#code';
-  }
-
-  function getTimeColor(seconds: bigint, status: number): string {
-    // Inactive escrows
-    const MAX_UINT256 = BigInt(
-      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
-    );
-    if (status !== 0 || seconds === MAX_UINT256 || seconds > BigInt(Number.MAX_SAFE_INTEGER)) {
-      return 'time-inactive';
-    }
-
-    if (seconds === BigInt(0)) {
-      return 'time-critical';
-    }
-    const days = Number(seconds) / (24 * 60 * 60);
-    if (days < 7) {
-      return 'time-critical';
-    }
-    if (days < 30) {
-      return 'time-warning';
-    }
-    return 'time-ok';
-  }
-
-  function handleDeactivateClick(escrowAddress: string) {
-    escrowToDeactivate = escrowAddress;
-    showConfirmModal = true;
-  }
-
-  function handleConfirmDeactivate() {
-    showConfirmModal = false;
-    if (escrowToDeactivate) {
-      performDeactivate(escrowToDeactivate);
-      escrowToDeactivate = null;
-    }
-  }
-
-  function handleCancelDeactivate() {
-    showConfirmModal = false;
-    escrowToDeactivate = null;
-  }
-
-  async function performDeactivate(escrowAddress: string) {
-    if (!$wallet.chainId) return;
-
-    deactivating.add(escrowAddress);
-    showToastMessage('Sending deactivation transaction...', 'info');
-
-    try {
-      const publicClient = getPublicClient($wallet.chainId);
-      const txHash = await deactivateEscrow(escrowAddress as Address, $wallet.chainId);
-      deactivationTxHashes.set(escrowAddress, txHash);
-
-      showToastMessage('Transaction sent! Waiting for confirmation...', 'info');
-
-      // Wait for transaction confirmation
-      const receipt = await publicClient.waitForTransactionReceipt({
-        hash: txHash as `0x${string}`,
-      });
-
-      if (receipt.status === 'success') {
-        showToastMessage(`Escrow deactivated successfully!`, 'success');
-        // Reload escrows to reflect the change
-        await loadEscrows();
-      } else {
-        showToastMessage('Transaction failed. Please try again.', 'error');
-      }
-    } catch (error) {
-      console.error('Failed to deactivate escrow:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to deactivate escrow';
-      showToastMessage(errorMsg, 'error');
-    } finally {
-      deactivating.delete(escrowAddress);
-      deactivationTxHashes.delete(escrowAddress);
-    }
-  }
-
-  function getTxExplorerUrl(txHash: string): string {
-    if (!$wallet.chainId) return '#';
-
-    const baseUrls: Record<number, string> = {
-      1: 'https://etherscan.io/tx/',
-      11155111: 'https://sepolia.etherscan.io/tx/',
-      8453: 'https://basescan.org/tx/',
-      84532: 'https://sepolia.basescan.org/tx/',
-    };
-
-    return (baseUrls[$wallet.chainId] || 'https://etherscan.io/tx/') + txHash;
-  }
-</script>
-
 <div class="container">
-  <div class="header">
-    <div>
-      <h1>Dashboard</h1>
-      <p class="description">Manage your inheritance escrow contracts</p>
+  <h1>Welcome to Heira</h1>
+  <p class="description">
+    Automated and permissionless Web3 inheritance management.
+  </p>
+
+  <div class="card">
+    <div class="card-content">
+      <section class="section">
+        <h2>What is Heira?</h2>
+        <p>
+          Heira is a Web3 application that helps you manage your cryptocurrency inheritance through
+          smart contract escrows. Instead of worrying about what happens to your digital assets if
+          something happens to you, you can set up an escrow contract that automatically transfers
+          your tokens to designated beneficiaries after a period of inactivity.
+        </p>
+        <p>
+          Whether you want to ensure your family receives your crypto assets, or you're planning
+          for the long-term distribution of your digital wealth, Heira provides a trustless,
+          automated solution that works entirely on the blockchain.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>How It Works</h2>
+        <p>
+          Setting up an inheritance escrow is simple:
+        </p>
+        <ol class="steps-list">
+          <li>
+            <strong>Create an Escrow:</strong> Specify your beneficiaries, their percentage shares,
+            and an inactivity period (e.g., 90 days).
+          </li>
+          <li>
+            <strong>Monitor Activity:</strong> The escrow contract monitors your main wallet for
+            transactions. As long as you're active, nothing happens.
+          </li>
+          <li>
+            <strong>Automatic Execution:</strong> After the inactivity period passes without any
+            transactions from your wallet, anyone can trigger the escrow to execute with the conditions set by you.
+          </li>
+          <li>
+            <strong>Distribution:</strong> Your assets are automatically distributed to your
+            beneficiaries according to your specified percentages, across multiple blockchain
+            networks if needed.
+          </li>
+        </ol>
+        <p>
+          You maintain full control while you're active. You can also deactivate the escrow at any time if you so choose. The escrow only executes if you've been inactive for
+          the full period.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>Your funds are safe with Heira</h2>
+        <div class="safety-grid">
+          <div class="safety-item">
+            <h3>Smart Contract Security</h3>
+            <p>
+              Heira uses battle-tested OpenZeppelin contracts with security features like
+              reentrancy protection. The code is immutable once deployed, meaning it can't be changed or manipulated by anyone.
+            </p>
+          </div>
+          <div class="safety-item">
+            <h3>You Stay in Control</h3>
+            <p>
+              As long as you're active, you maintain full control over your assets. The escrow only executes after verified inactivity, giving you complete peace of mind. You can also deactivate the escrow at any time if you so choose.
+            </p>
+          </div>
+          <div class="safety-item">
+            <h3>Transparent & Verifiable</h3>
+            <p>
+              All escrow contracts are deployed on public blockchains where anyone can verify the code and conditions. There's no hidden logic nor third parties. Our code is 100% open source.
+            </p>
+          </div>
+          <div class="safety-item">
+            <h3>Permissionless Execution</h3>
+            <p>
+              Once conditions are met, anyone can trigger the escrow execution. This ensures your beneficiaries can receive their inheritance even if they're not technical. In any case, we have a network of keepers making sure that all escrows are executed in time.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Get Started</h2>
+        <p>
+          Ready to set up your inheritance escrow? Connect your wallet and create your first escrow
+          contract in just a few minutes.
+        </p>
+        <div class="cta-buttons">
+          <a href="/create" class="btn btn-primary">Create Escrow</a>
+          <a href="/dashboard" class="btn btn-secondary">View Dashboard</a>
+        </div>
+      </section>
     </div>
-    {#if $wallet.isConnected}
-      <button class="btn btn-primary" on:click={() => goto('/create')}> Create New Escrow </button>
-    {/if}
   </div>
-
-  {#if $wallet.isConnected}
-    <div class="grid">
-      <!-- Escrows Card -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Your Escrows</h2>
-        </div>
-        <div class="card-content">
-          {#if escrows.length === 0}
-            <div class="empty-state">
-              <p>No escrows found</p>
-              <button class="btn btn-primary" on:click={() => goto('/create')}>
-                Create Your First Escrow
-              </button>
-            </div>
-          {:else}
-            <div class="escrow-list">
-              {#each escrows as escrow}
-                <div class="escrow-item">
-                  <div class="escrow-header">
-                    <a href="/escrows/{escrow.address}" class="escrow-address text-mono">
-                      {escrow.address}
-                    </a>
-                    <span class="status-badge {getStatusColor(escrow.status)}">
-                      {getStatusText(escrow.status)}
-                    </span>
-                  </div>
-                  <div class="escrow-footer">
-                    <div
-                      class="escrow-time {getTimeColor(escrow.timeUntilExecution, escrow.status)}"
-                    >
-                      {formatTimeUntilExecution(escrow.timeUntilExecution, escrow.status)}
-                    </div>
-                    {#if escrow.status === 0}
-                      <div class="deactivate-section">
-                        {#if deactivating.has(escrow.address)}
-                          <div class="deactivating-indicator">
-                            <span class="spinner"></span>
-                            <span>Deactivating...</span>
-                            {#if deactivationTxHashes.has(escrow.address)}
-                              <a
-                                href={getTxExplorerUrl(deactivationTxHashes.get(escrow.address)!)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                class="tx-link"
-                              >
-                                View TX
-                              </a>
-                            {/if}
-                          </div>
-                        {:else}
-                          <button
-                            class="btn btn-secondary btn-sm"
-                            on:click={() => handleDeactivateClick(escrow.address)}
-                          >
-                            Deactivate
-                          </button>
-                        {/if}
-                      </div>
-                    {/if}
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      <!-- Token Balances Card -->
-      <div class="card">
-        <div class="card-header">
-          <h2>Token Balances</h2>
-        </div>
-        <div class="card-content">
-          <TokenList />
-        </div>
-      </div>
-    </div>
-  {:else}
-    <div class="card">
-      <div class="empty-state">
-        <p>Connect your wallet to get started</p>
-        <p class="text-muted">You'll be able to create and manage inheritance escrow contracts</p>
-      </div>
-    </div>
-  {/if}
 </div>
-
-<ConfirmationModal
-  title="Deactivate Escrow"
-  message="Are you sure you want to deactivate this escrow? This action cannot be undone."
-  confirmText="Deactivate"
-  cancelText="Cancel"
-  confirmButtonClass="btn-secondary"
-  isOpen={showConfirmModal}
-  onConfirm={handleConfirmDeactivate}
-  onCancel={handleCancelDeactivate}
-/>
-
-{#if showToast}
-  <Toast message={toastMessage} type={toastType} onClose={() => (showToast = false)} />
-{/if}
 
 <style>
   .container {
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
-  }
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2rem;
-    gap: 1rem;
-    flex-wrap: wrap;
   }
 
   h1 {
@@ -362,13 +111,8 @@
 
   .description {
     color: var(--color-text-secondary);
-    margin: 0;
-  }
-
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 1.5rem;
+    margin-bottom: 2rem;
+    font-size: 1.125rem;
   }
 
   .card {
@@ -376,160 +120,148 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
     border: 1px solid var(--color-border);
-    overflow: hidden;
-  }
-
-  .card-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid var(--color-border);
-    background-color: var(--color-background-light);
-  }
-
-  .card-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--color-text);
   }
 
   .card-content {
+    padding: 2rem;
+  }
+
+  .section {
+    margin-bottom: 2.5rem;
+  }
+
+  .section:last-of-type {
+    margin-bottom: 0;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  h3 {
+    font-size: 1.125rem;
+    margin-bottom: 0.5rem;
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  p {
+    color: var(--color-text);
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  .steps-list {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+    color: var(--color-text);
+  }
+
+  .steps-list li {
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .steps-list li:last-child {
+    margin-bottom: 0;
+  }
+
+  .steps-list strong {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .safety-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .safety-item {
     padding: 1.5rem;
-  }
-
-  .escrow-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .escrow-item {
-    padding: 1rem;
-    background-color: var(--color-background-light);
+    background: var(--color-background-light);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-border);
   }
 
-  .escrow-header {
+  .safety-item h3 {
+    margin-top: 0;
+  }
+
+  .safety-item p {
+    margin-bottom: 0;
+    font-size: 0.9375rem;
+  }
+
+  .cta-buttons {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
   }
 
-  .escrow-address {
-    font-size: 0.9rem;
-    color: var(--color-primary);
-    text-decoration: none;
-    word-break: break-all;
-    transition: opacity 0.2s;
-  }
-
-  .escrow-address:hover {
-    opacity: 0.8;
-    text-decoration: underline;
-  }
-
-  .status-badge {
-    padding: 0.25rem 0.75rem;
+  .btn {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .status-active {
-    background-color: #f0fff4;
-    color: #166534;
-  }
-
-  .status-inactive {
-    background-color: var(--color-background-light);
-    color: var(--color-text-muted);
-  }
-
-  .escrow-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 0.5rem;
-  }
-
-  .btn-sm {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-  }
-
-  .time-inactive {
-    color: var(--color-text-muted);
-  }
-
-  .escrow-time {
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
-
-  .time-critical {
-    color: var(--color-danger);
-  }
-
-  .time-warning {
-    color: #f59e0b;
-  }
-
-  .time-ok {
-    color: var(--color-success);
-  }
-
-  .deactivate-section {
-    display: flex;
-    align-items: center;
-  }
-
-  .deactivating-indicator {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--color-text);
-  }
-
-  .spinner {
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--color-border);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .tx-link {
-    color: var(--color-primary);
     text-decoration: none;
-    font-size: 0.875rem;
-    margin-left: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
   }
 
-  .tx-link:hover {
-    text-decoration: underline;
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: var(--color-btn-primary-text);
   }
 
-  .empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
+  .btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
   }
 
-  .empty-state p {
-    margin-bottom: 1rem;
+  .btn-secondary {
+    background-color: var(--color-background-light);
     color: var(--color-text);
+    border: 1px solid var(--color-border);
   }
 
-  :root.dark .status-active {
-    background-color: #14532d;
-    color: #86efac;
+  .btn-secondary:hover {
+    background-color: var(--color-background);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  @media (max-width: 640px) {
+    .card-content {
+      padding: 1.5rem;
+    }
+
+    .section {
+      margin-bottom: 2rem;
+    }
+
+    .safety-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cta-buttons {
+      flex-direction: column;
+    }
+
+    .btn {
+      width: 100%;
+      text-align: center;
+    }
   }
 </style>
