@@ -1,17 +1,37 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import TokenList from '../components/TokenList.svelte';
+  import Toast from '../lib/components/Toast.svelte';
   import { wallet } from '../lib/stores/wallet';
   import { goto } from '$app/navigation';
-  import { getEscrowsByOwner, getEscrowStatus, getTimeUntilExecution } from '../lib/escrow';
+  import {
+    getEscrowsByOwner,
+    getEscrowStatus,
+    getTimeUntilExecution,
+    deactivateEscrow,
+  } from '../lib/escrow';
   import { mainnet, sepolia } from 'viem/chains';
   import type { Address } from 'viem';
+  import { getPublicClient } from '../lib/wallet';
 
   let escrows: Array<{
     address: string;
     timeUntilExecution: bigint;
     status: number;
   }> = [];
+
+  let deactivating: Set<string> = new Set();
+  let deactivationTxHashes: Map<string, string> = new Map();
+
+  let toastMessage = '';
+  let toastType: 'error' | 'success' | 'info' = 'info';
+  let showToast = false;
+
+  function showToastMessage(message: string, type: 'error' | 'success' | 'info' = 'info') {
+    toastMessage = message;
+    toastType = type;
+    showToast = true;
+  }
 
   async function loadEscrows() {
     if (!$wallet.address || !$wallet.chainId) {
@@ -69,10 +89,20 @@
     return status === 0 ? 'Active' : 'Inactive';
   }
 
-  function formatTimeUntilExecution(seconds: bigint): string {
+  function formatTimeUntilExecution(seconds: bigint, status: number): string {
+    // Inactive escrows return type(uint256).max from getTimeUntilExecution
+    // Check if it's the max value (inactive) or if status is inactive
+    const MAX_UINT256 = BigInt(
+      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+    );
+    if (status !== 0 || seconds === MAX_UINT256 || seconds > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return 'N/A';
+    }
+
     if (seconds === BigInt(0)) {
       return 'Ready to execute';
     }
+
     const days = Number(seconds) / (24 * 60 * 60);
     if (days > 30) {
       return `${Math.floor(days / 30)} months`;
@@ -83,7 +113,28 @@
     return `${Math.floor(days)} days`;
   }
 
-  function getTimeColor(seconds: bigint): string {
+  function getExplorerUrl(address: string): string {
+    if (!$wallet.chainId) return '#';
+
+    const baseUrls: Record<number, string> = {
+      1: 'https://etherscan.io/address/',
+      11155111: 'https://sepolia.etherscan.io/address/',
+      8453: 'https://basescan.org/address/',
+      84532: 'https://sepolia.basescan.org/address/',
+    };
+
+    return (baseUrls[$wallet.chainId] || 'https://etherscan.io/address/') + address + '#code';
+  }
+
+  function getTimeColor(seconds: bigint, status: number): string {
+    // Inactive escrows
+    const MAX_UINT256 = BigInt(
+      '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+    );
+    if (status !== 0 || seconds === MAX_UINT256 || seconds > BigInt(Number.MAX_SAFE_INTEGER)) {
+      return 'time-inactive';
+    }
+
     if (seconds === BigInt(0)) {
       return 'time-critical';
     }
@@ -95,6 +146,54 @@
       return 'time-warning';
     }
     return 'time-ok';
+  }
+
+  async function handleDeactivate(escrowAddress: string) {
+    if (!$wallet.chainId) return;
+
+    deactivating.add(escrowAddress);
+    showToastMessage('Sending deactivation transaction...', 'info');
+
+    try {
+      const publicClient = getPublicClient($wallet.chainId);
+      const txHash = await deactivateEscrow(escrowAddress as Address, $wallet.chainId);
+      deactivationTxHashes.set(escrowAddress, txHash);
+
+      showToastMessage('Transaction sent! Waiting for confirmation...', 'info');
+
+      // Wait for transaction confirmation
+      const receipt = await publicClient.waitForTransactionReceipt({
+        hash: txHash as `0x${string}`,
+      });
+
+      if (receipt.status === 'success') {
+        showToastMessage(`Escrow deactivated successfully!`, 'success');
+        // Reload escrows to reflect the change
+        await loadEscrows();
+      } else {
+        showToastMessage('Transaction failed. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to deactivate escrow:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to deactivate escrow';
+      showToastMessage(errorMsg, 'error');
+    } finally {
+      deactivating.delete(escrowAddress);
+      deactivationTxHashes.delete(escrowAddress);
+    }
+  }
+
+  function getTxExplorerUrl(txHash: string): string {
+    if (!$wallet.chainId) return '#';
+
+    const baseUrls: Record<number, string> = {
+      1: 'https://etherscan.io/tx/',
+      11155111: 'https://sepolia.etherscan.io/tx/',
+      8453: 'https://basescan.org/tx/',
+      84532: 'https://sepolia.basescan.org/tx/',
+    };
+
+    return (baseUrls[$wallet.chainId] || 'https://etherscan.io/tx/') + txHash;
   }
 </script>
 
@@ -129,15 +228,51 @@
               {#each escrows as escrow}
                 <div class="escrow-item">
                   <div class="escrow-header">
-                    <span class="escrow-address text-mono"
-                      >{escrow.address.slice(0, 10)}...{escrow.address.slice(-8)}</span
+                    <a
+                      href={getExplorerUrl(escrow.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="escrow-address text-mono"
                     >
+                      {escrow.address}
+                    </a>
                     <span class="status-badge {getStatusColor(escrow.status)}">
                       {getStatusText(escrow.status)}
                     </span>
                   </div>
-                  <div class="escrow-time {getTimeColor(escrow.timeUntilExecution)}">
-                    {formatTimeUntilExecution(escrow.timeUntilExecution)}
+                  <div class="escrow-footer">
+                    <div
+                      class="escrow-time {getTimeColor(escrow.timeUntilExecution, escrow.status)}"
+                    >
+                      {formatTimeUntilExecution(escrow.timeUntilExecution, escrow.status)}
+                    </div>
+                    {#if escrow.status === 0}
+                      <div class="deactivate-section">
+                        {#if deactivating.has(escrow.address)}
+                          <div class="deactivating-indicator">
+                            <span class="spinner"></span>
+                            <span>Deactivating...</span>
+                            {#if deactivationTxHashes.has(escrow.address)}
+                              <a
+                                href={getTxExplorerUrl(deactivationTxHashes.get(escrow.address)!)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="tx-link"
+                              >
+                                View TX
+                              </a>
+                            {/if}
+                          </div>
+                        {:else}
+                          <button
+                            class="btn btn-secondary btn-sm"
+                            on:click={() => handleDeactivate(escrow.address)}
+                          >
+                            Deactivate
+                          </button>
+                        {/if}
+                      </div>
+                    {/if}
                   </div>
                 </div>
               {/each}
@@ -165,6 +300,10 @@
     </div>
   {/if}
 </div>
+
+{#if showToast}
+  <Toast message={toastMessage} type={toastType} onClose={() => (showToast = false)} />
+{/if}
 
 <style>
   .container {
@@ -245,7 +384,15 @@
 
   .escrow-address {
     font-size: 0.9rem;
-    color: var(--color-text);
+    color: var(--color-primary);
+    text-decoration: none;
+    word-break: break-all;
+    transition: opacity 0.2s;
+  }
+
+  .escrow-address:hover {
+    opacity: 0.8;
+    text-decoration: underline;
   }
 
   .status-badge {
@@ -265,6 +412,22 @@
     color: var(--color-text-muted);
   }
 
+  .escrow-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+
+  .btn-sm {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .time-inactive {
+    color: var(--color-text-muted);
+  }
+
   .escrow-time {
     font-size: 0.875rem;
     font-weight: 500;
@@ -280,6 +443,45 @@
 
   .time-ok {
     color: var(--color-success);
+  }
+
+  .deactivate-section {
+    display: flex;
+    align-items: center;
+  }
+
+  .deactivating-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--color-text);
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .tx-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-size: 0.875rem;
+    margin-left: 0.5rem;
+  }
+
+  .tx-link:hover {
+    text-decoration: underline;
   }
 
   .empty-state {
