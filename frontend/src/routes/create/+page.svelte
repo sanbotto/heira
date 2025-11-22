@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { wallet } from '../../lib/stores/wallet';
-  import { resolveEnsName } from '../../lib/ens';
-  import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
-  import { mainnet } from 'viem/chains';
-  import type { Address } from 'viem';
-  import { supportedChains, type SupportedChainId } from '../../lib/wallet';
-  import Toast from '../../lib/components/Toast.svelte';
+	import { wallet } from '../../lib/stores/wallet';
+	import { resolveEnsName } from '../../lib/ens';
+	import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
+	import { mainnet, sepolia } from 'viem/chains';
+	import type { Address } from 'viem';
+	import { supportedChains, type SupportedChainId } from '../../lib/wallet';
+	import Toast from '../../lib/components/Toast.svelte';
 
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
@@ -154,15 +154,19 @@
       });
 
       // Get factory address from environment based on current chain
+      // Sepolia uses the same env var as Ethereum mainnet
       const factoryAddress = (
-        $wallet.chainId === mainnet.id
+        $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
           ? import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM
           : import.meta.env.VITE_FACTORY_ADDRESS_BASE
       ) as Address;
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
+        const envVarName = ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) 
+          ? 'VITE_FACTORY_ADDRESS_ETHEREUM' 
+          : 'VITE_FACTORY_ADDRESS_BASE';
         throw new Error(
-          `Factory address not configured for chain ${$wallet.chainId}. Please set ${$wallet.chainId === mainnet.id ? 'VITE_FACTORY_ADDRESS_ETHEREUM' : 'VITE_FACTORY_ADDRESS_BASE'} in .env`
+          `Factory address not configured for chain ${$wallet.chainId}. Please set ${envVarName} in .env`
         );
       }
 

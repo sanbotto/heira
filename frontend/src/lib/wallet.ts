@@ -1,8 +1,8 @@
 import { createPublicClient, createWalletClient, custom, http, type Address } from 'viem';
-import { mainnet, base } from 'viem/chains';
+import { mainnet, base, sepolia } from 'viem/chains';
 
 // Chain configurations
-export const supportedChains = [mainnet, base] as const;
+export const supportedChains = [mainnet, base, sepolia] as const;
 export type SupportedChainId = (typeof supportedChains)[number]['id'];
 
 // Create public clients for each chain
@@ -13,6 +13,10 @@ export const publicClients = {
   }),
   [base.id]: createPublicClient({
     chain: base,
+    transport: http(),
+  }),
+  [sepolia.id]: createPublicClient({
+    chain: sepolia,
     transport: http(),
   }),
 };

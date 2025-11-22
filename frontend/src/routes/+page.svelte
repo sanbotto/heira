@@ -4,7 +4,7 @@
   import { wallet } from '../lib/stores/wallet';
   import { goto } from '$app/navigation';
   import { getEscrowsByOwner, getEscrowStatus, getTimeUntilExecution } from '../lib/escrow';
-  import { mainnet } from 'viem/chains';
+  import { mainnet, sepolia } from 'viem/chains';
   import type { Address } from 'viem';
 
   let escrows: Array<{
@@ -21,8 +21,9 @@
 
     try {
       // Get factory address based on current chain
+      // Sepolia uses the same env var as Ethereum mainnet
       const factoryAddress = (
-        $wallet.chainId === mainnet.id
+        $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
           ? import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM
           : import.meta.env.VITE_FACTORY_ADDRESS_BASE
       ) as Address;
