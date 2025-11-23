@@ -9,6 +9,7 @@
 
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
+  let email: string = ''; // Optional email for inactivity warnings
 
   // Token selection
   let includedTokens: string[] = [];
@@ -70,10 +71,7 @@
 
   // Add a new empty row
   function addRow() {
-    beneficiaryRows = [
-      ...beneficiaryRows,
-      { address: '', percentage: 0, chainId: 1 },
-    ];
+    beneficiaryRows = [...beneficiaryRows, { address: '', percentage: 0, chainId: 1 }];
   }
 
   // Remove a row
@@ -117,6 +115,16 @@
 
     creating = true;
     showToastMessage('Preparing escrow creation...', 'info');
+
+    // Helper function to get network name from chain ID
+    function getNetworkName(chainId: number): string {
+      if (chainId === mainnet.id) return 'mainnet';
+      if (chainId === sepolia.id) return 'sepolia';
+      if (chainId === 8453) return 'base';
+      if (chainId === 84532) return 'baseSepolia';
+      if (chainId === 5115) return 'citreaTestnet';
+      return `chain-${chainId}`;
+    }
 
     try {
       // Use mainWallet as-is (can be ENS name or address), fallback to connected wallet if empty
@@ -164,7 +172,7 @@
       // Citrea Testnet uses its own env var
       let factoryAddress: Address;
       let envVarName: string;
-      
+
       if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
         envVarName = 'VITE_FACTORY_ADDRESS_ETHEREUM';
@@ -202,6 +210,30 @@
 
       showSuccessToast(`Escrow created successfully at ${escrowAddress}`);
 
+      // Register escrow with keeper service
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const networkName = getNetworkName($wallet.chainId);
+
+        await fetch(`${backendUrl}/api/escrows/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            escrowAddress,
+            network: networkName,
+            email: email.trim() || undefined,
+            inactivityPeriod: inactivityPeriodSeconds,
+          }),
+        });
+
+        console.log('Escrow registered with keeper service');
+      } catch (registerError) {
+        console.warn('Failed to register escrow with keeper:', registerError);
+        // Don't fail the whole flow if registration fails
+      }
+
       // Navigate to the escrow detail page
       await goto(`/escrows/${escrowAddress}`);
     } catch (err) {
@@ -237,6 +269,22 @@
         </p>
       </div>
 
+      <!-- Email (Optional) -->
+      <div class="form-group">
+        <label for="email" class="form-label"> Email (Optional) </label>
+        <input
+          id="email"
+          type="email"
+          bind:value={email}
+          placeholder="your@email.com"
+          class="form-input"
+        />
+        <p class="form-help">
+          Receive email notifications when your escrow is approaching its inactivity period (1 week
+          before execution).
+        </p>
+      </div>
+
       <!-- Tokens to Include -->
       <div class="form-group">
         <label for="tokens-to-include" class="form-label"> Tokens to Include </label>
@@ -246,7 +294,7 @@
               <input
                 type="checkbox"
                 checked={includedTokens.includes(token.value)}
-                on:change={(e) => {
+                on:change={e => {
                   if (e.currentTarget.checked) {
                     includedTokens = [...includedTokens, token.value];
                   } else {
@@ -259,9 +307,12 @@
           {/each}
         </div>
         <p class="form-help">
-          Select tokens to include in the escrow. When the time comes, the escrow will pull these tokens from your wallet using approvals. It's important to note that the escrow can only handle ERC20 tokens, so your ETH and cBTC have to be available in their "wrapped forms" (WETH and WCBTC).
+          Select tokens to include in the escrow. When the time comes, the escrow will pull these
+          tokens from your wallet using approvals. It's important to note that the escrow can only
+          handle ERC20 tokens, so your ETH and cBTC have to be available in their "wrapped forms"
+          (WETH and WCBTC).
         </p>
-        
+
         {#if includedTokens.length > 0}
           <div class="form-group" style="margin-top: 1rem;">
             <label class="checkbox-label">
@@ -269,7 +320,8 @@
               <span>Swap included tokens to USDC</span>
             </label>
             <p class="form-help" style="margin-top: 0.5rem;">
-              When enabled, all included tokens will be swapped to USDC before distribution to beneficiaries.
+              When enabled, all included tokens will be swapped to USDC before distribution to
+              beneficiaries.
             </p>
           </div>
         {/if}
@@ -417,7 +469,7 @@
     font-size: 0.875rem;
   }
 
-  .checkbox-label input[type="checkbox"] {
+  .checkbox-label input[type='checkbox'] {
     width: 1.25rem;
     height: 1.25rem;
     cursor: pointer;
@@ -556,23 +608,6 @@
     border: 6px solid transparent;
     border-top-color: var(--color-border);
     margin-top: -1px;
-  }
-
-  .info-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--color-background-card);
-  }
-
-  .info-tooltip p {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.875rem;
-    color: var(--color-text);
-    line-height: 1.5;
   }
 
   .btn.btn-secondary:disabled {

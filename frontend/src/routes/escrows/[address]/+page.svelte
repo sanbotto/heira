@@ -12,6 +12,7 @@
   import { getPublicClient } from '../../../lib/wallet';
   import ConfirmationModal from '../../../lib/components/ConfirmationModal.svelte';
   import Toast from '../../../lib/components/Toast.svelte';
+  import { mainnet, sepolia } from 'viem/chains';
   import type { Address } from 'viem';
 
   let loading = true;
@@ -33,6 +34,11 @@
   let toastMessage = '';
   let toastType: 'error' | 'success' | 'info' = 'info';
   let showToast = false;
+  let emailNotification: string | null = null;
+  let loadingEmail = false;
+  let emailInput: string = '';
+  let enablingEmail = false;
+  let disablingEmail = false;
 
   onMount(async () => {
     escrowAddress = $page.params.address ?? '';
@@ -62,11 +68,45 @@
       status = Number(escrowStatus);
       timeUntilExecution = timeUntilExec;
       beneficiaries = bens;
+
+      // Load email notification data from backend
+      await loadEmailNotification();
     } catch (err) {
       console.error('Failed to load escrow data:', err);
       error = err instanceof Error ? err.message : 'Failed to load escrow data';
     } finally {
       loading = false;
+    }
+  }
+
+  async function loadEmailNotification() {
+    if (!escrowAddress || !$wallet.chainId) {
+      return;
+    }
+
+    loadingEmail = true;
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const networkName = getNetworkName($wallet.chainId);
+
+      const response = await fetch(
+        `${backendUrl}/api/escrows/${escrowAddress}?network=${networkName}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.escrow) {
+          emailNotification = data.escrow.email || null;
+        }
+      } else {
+        // Escrow might not be registered with keeper, that's okay
+        emailNotification = null;
+      }
+    } catch (err) {
+      console.warn('Failed to load email notification data:', err);
+      emailNotification = null;
+    } finally {
+      loadingEmail = false;
     }
   }
 
@@ -137,7 +177,7 @@
 
   function getExplorerName(): string {
     if (!$wallet.chainId) return 'Etherscan';
-    
+
     switch ($wallet.chainId) {
       case 1:
       case 11155111:
@@ -192,6 +232,159 @@
     showConfirmModal = false;
   }
 
+  function getNetworkName(chainId: number): string {
+    if (chainId === mainnet.id) return 'mainnet';
+    if (chainId === sepolia.id) return 'sepolia';
+    if (chainId === 8453) return 'base';
+    if (chainId === 84532) return 'baseSepolia';
+    if (chainId === 5115) return 'citreaTestnet';
+    return `chain-${chainId}`;
+  }
+
+  async function handleEnableEmail() {
+    if (!emailInput.trim() || !$wallet.chainId || !escrowAddress) {
+      return;
+    }
+
+    const email = emailInput.trim();
+
+    // Basic email validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToastMessage('Please enter a valid email address', 'error');
+      return;
+    }
+
+    enablingEmail = true;
+    showToastMessage('Enabling email notifications...', 'info');
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const networkName = getNetworkName($wallet.chainId);
+
+      // Get inactivity period from the escrow contract
+      let inactivityPeriod: number | undefined = undefined;
+      try {
+        const publicClient = getPublicClient($wallet.chainId);
+        const inactivityPeriodBigInt = await publicClient.readContract({
+          address: escrowAddress as Address,
+          abi: [
+            {
+              name: 'inactivityPeriod',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [],
+              outputs: [{ type: 'uint256' }],
+            },
+          ] as const,
+          functionName: 'inactivityPeriod',
+        });
+        inactivityPeriod = Number(inactivityPeriodBigInt);
+      } catch (error) {
+        console.warn('Could not fetch inactivity period, proceeding without it:', error);
+      }
+
+      const response = await fetch(`${backendUrl}/api/escrows/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          escrowAddress,
+          network: networkName,
+          email,
+          inactivityPeriod,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to enable email notifications');
+      }
+
+      showToastMessage('Email notifications enabled successfully!', 'success');
+      emailInput = '';
+
+      // Reload email notification data
+      await loadEmailNotification();
+    } catch (error) {
+      console.error('Failed to enable email notifications:', error);
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to enable email notifications';
+      showToastMessage(errorMsg, 'error');
+    } finally {
+      enablingEmail = false;
+    }
+  }
+
+  async function handleDisableEmail() {
+    if (!$wallet.chainId || !escrowAddress) {
+      return;
+    }
+
+    disablingEmail = true;
+    showToastMessage('Disabling email notifications...', 'info');
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const networkName = getNetworkName($wallet.chainId);
+
+      // Get inactivity period from the escrow contract
+      let inactivityPeriod: number | undefined = undefined;
+      try {
+        const publicClient = getPublicClient($wallet.chainId);
+        const inactivityPeriodBigInt = await publicClient.readContract({
+          address: escrowAddress as Address,
+          abi: [
+            {
+              name: 'inactivityPeriod',
+              type: 'function',
+              stateMutability: 'view',
+              inputs: [],
+              outputs: [{ type: 'uint256' }],
+            },
+          ] as const,
+          functionName: 'inactivityPeriod',
+        });
+        inactivityPeriod = Number(inactivityPeriodBigInt);
+      } catch (error) {
+        console.warn('Could not fetch inactivity period, proceeding without it:', error);
+      }
+
+      // Register with empty email to disable notifications
+      const response = await fetch(`${backendUrl}/api/escrows/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          escrowAddress,
+          network: networkName,
+          email: null, // Set to null to disable
+          inactivityPeriod,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to disable email notifications');
+      }
+
+      showToastMessage('Email notifications disabled successfully!', 'success');
+
+      // Reload email notification data
+      await loadEmailNotification();
+    } catch (error) {
+      console.error('Failed to disable email notifications:', error);
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to disable email notifications';
+      showToastMessage(errorMsg, 'error');
+    } finally {
+      disablingEmail = false;
+    }
+  }
+
   async function performDeactivate() {
     if (!$wallet.chainId || !escrowAddress) return;
 
@@ -211,6 +404,29 @@
 
       if (receipt.status === 'success') {
         showToastMessage('Escrow deactivated successfully!', 'success');
+
+        // Unregister escrow from keeper service
+        try {
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          const networkName = getNetworkName($wallet.chainId);
+
+          await fetch(`${backendUrl}/api/escrows/unregister`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              escrowAddress,
+              network: networkName,
+            }),
+          });
+
+          console.log('Escrow unregistered from keeper service');
+        } catch (unregisterError) {
+          console.warn('Failed to unregister escrow from keeper:', unregisterError);
+          // Don't fail the whole flow if unregistration fails
+        }
+
         // Reload escrow data to reflect the change
         await loadEscrowData();
       } else {
@@ -298,6 +514,88 @@
             <span class="info-value">{formatTimeUntilExecution(timeUntilExecution, status)}</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Email Notification Section -->
+    <div class="card">
+      <div class="card-header">
+        <h2>Email Notifications</h2>
+      </div>
+      <div class="card-content">
+        {#if loadingEmail}
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading notification settings...</p>
+          </div>
+        {:else if emailNotification}
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">Status</span>
+              <span class="status-badge status-active">Enabled</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Email Address</span>
+              <span class="info-value">{emailNotification}</span>
+            </div>
+          </div>
+          <div style="margin-top: 1.5rem;">
+            <button
+              class="btn btn-secondary"
+              on:click={handleDisableEmail}
+              disabled={disablingEmail}
+            >
+              {#if disablingEmail}
+                Disabling...
+              {:else}
+                Disable Notifications
+              {/if}
+            </button>
+          </div>
+          <p style="margin-top: 1.5rem; font-size: 0.875rem;">
+            <strong>Notification Details:</strong> You will receive an email notification when your escrow
+            is approaching its inactivity period (less than 7 days remaining). This helps ensure you're
+            aware before the escrow becomes executable.
+          </p>
+        {:else if status === 0}
+          <div>
+            <p style="margin-bottom: 1rem;">Email notifications are not enabled for this escrow.</p>
+            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+              <input
+                type="email"
+                bind:value={emailInput}
+                placeholder="your@email.com"
+                class="form-input"
+                style="flex: 1;"
+                disabled={enablingEmail}
+              />
+              <button
+                class="btn btn-primary"
+                on:click={handleEnableEmail}
+                disabled={enablingEmail || !emailInput.trim()}
+              >
+                {#if enablingEmail}
+                  Enabling...
+                {:else}
+                  Enable
+                {/if}
+              </button>
+            </div>
+            <p style="margin-top: 0.75rem; color: #6b7280; font-size: 0.875rem;">
+              You will receive an email notification when less than 7 days remain until the
+              inactivity period expires.
+            </p>
+          </div>
+        {:else}
+          <div class="empty-state">
+            <p style="margin-bottom: 0.5rem;">
+              Email notifications cannot be enabled for inactive escrows.
+            </p>
+            <p style="color: #6b7280; font-size: 0.875rem;">
+              Only active escrows can be monitored for inactivity.
+            </p>
+          </div>
+        {/if}
       </div>
     </div>
 

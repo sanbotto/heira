@@ -1,5 +1,11 @@
 import { ethers } from "ethers";
 import dotenv from "dotenv";
+import {
+  getEscrowsByNetwork,
+  updateLastEmailSent,
+  type EscrowMetadata,
+} from "./escrow-storage.js";
+import { sendInactivityWarning } from "./email.js";
 
 dotenv.config();
 
@@ -43,7 +49,15 @@ export class KeeperService {
 
   private initializeProviders() {
     // Initialize provider and signer for each network
+    // RPC URLs are already included in the network config
     for (const network of this.config.networks) {
+      if (!network.rpcUrl) {
+        console.error(
+          `No RPC URL configured for network ${network.name}. Check environment variables.`,
+        );
+        continue;
+      }
+
       const provider = new ethers.JsonRpcProvider(network.rpcUrl);
       const wallet = new ethers.Wallet(this.config.privateKey, provider);
       this.providers.set(network.name, provider);
@@ -122,7 +136,7 @@ export class KeeperService {
   }
 
   /**
-   * Check all escrows on a specific network
+   * Check all escrows on a specific network (using managed list from storage)
    */
   private async checkNetwork(network: {
     name: string;
@@ -136,24 +150,161 @@ export class KeeperService {
         return;
       }
 
-      const factoryContract = new ethers.Contract(
-        network.factoryAddress,
-        FACTORY_ABI,
-        provider,
-      );
-      const escrowAddresses = await factoryContract.getAllEscrows();
+      // Get managed escrows from storage instead of querying factory
+      const managedEscrows = await getEscrowsByNetwork(network.name);
 
       console.log(
-        `Checking ${escrowAddresses.length} escrows on ${network.name}...`,
+        `Checking ${managedEscrows.length} managed escrows on ${network.name}...`,
       );
 
-      for (const escrowAddress of escrowAddresses) {
-        await this.checkEscrow(escrowAddress, network.name);
+      for (const escrowMetadata of managedEscrows) {
+        await this.checkEscrow(escrowMetadata.escrowAddress, network.name);
         // Small delay between checks to avoid rate limiting
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     } catch (error: any) {
       console.error(`Error checking network ${network.name}:`, error.message);
+    }
+  }
+
+  /**
+   * Check for escrows approaching inactivity period and send email warnings
+   */
+  private async checkInactivityWarnings(network: {
+    name: string;
+    factoryAddress: string;
+    rpcUrl: string;
+  }): Promise<void> {
+    try {
+      const provider = this.providers.get(network.name);
+      if (!provider) {
+        return;
+      }
+
+      const managedEscrows = await getEscrowsByNetwork(network.name);
+      const ONE_WEEK_SECONDS = 7 * 24 * 60 * 60; // 604800 seconds
+      const SIX_DAYS_SECONDS = 6 * 24 * 60 * 60; // 518400 seconds
+
+      console.log(
+        `Checking ${managedEscrows.length} escrows for inactivity warnings on ${network.name}`,
+      );
+
+      for (const escrowMetadata of managedEscrows) {
+        console.log(
+          `Processing escrow ${escrowMetadata.escrowAddress} on ${network.name}: email=${escrowMetadata.email || "none"}, lastEmailSent=${escrowMetadata.lastEmailSent || "never"}`,
+        );
+        // Skip if no email provided
+        if (!escrowMetadata.email) {
+          console.log(
+            `Skipping email check for escrow ${escrowMetadata.escrowAddress} on ${network.name}: no email configured`,
+          );
+          continue;
+        }
+
+        try {
+          const escrowContract = new ethers.Contract(
+            escrowMetadata.escrowAddress,
+            ESCROW_ABI,
+            provider,
+          );
+
+          // Check contract status - skip if inactive
+          const status = await escrowContract.status();
+          // Status 0 = Active, Status 1 = Inactive
+          const statusNumber = Number(status);
+          console.log(
+            `Escrow ${escrowMetadata.escrowAddress} on ${network.name} status check: raw=${status}, number=${statusNumber}, type=${typeof status}`,
+          );
+
+          if (statusNumber !== 0) {
+            console.log(
+              `Skipping email check for escrow ${escrowMetadata.escrowAddress} on ${network.name}: contract is inactive (status: ${statusNumber}, expected 0 for Active)`,
+            );
+            continue;
+          }
+
+          console.log(
+            `Escrow ${escrowMetadata.escrowAddress} on ${network.name} is Active (status: ${statusNumber}), proceeding with email check`,
+          );
+
+          const timeUntilExecution = await escrowContract.getTimeUntilExecution();
+          const daysRemaining = Number(timeUntilExecution) / (24 * 60 * 60);
+
+          console.log(
+            `Checking email notification for escrow ${escrowMetadata.escrowAddress} on ${network.name}: ${daysRemaining.toFixed(2)} days remaining`,
+          );
+
+          // Check if time remaining is <= 7 days and > 0
+          if (
+            timeUntilExecution > 0 &&
+            timeUntilExecution <= BigInt(ONE_WEEK_SECONDS)
+          ) {
+            // Check if email was already sent
+            const shouldSendEmail =
+              !escrowMetadata.lastEmailSent ||
+              Date.now() - escrowMetadata.lastEmailSent >
+              SIX_DAYS_SECONDS * 1000;
+
+            if (!shouldSendEmail && escrowMetadata.lastEmailSent) {
+              const daysSinceLastEmail =
+                (Date.now() - escrowMetadata.lastEmailSent) / (24 * 60 * 60 * 1000);
+              console.log(
+                `Skipping email for escrow ${escrowMetadata.escrowAddress} on ${network.name}: email already sent ${daysSinceLastEmail.toFixed(2)} days ago`,
+              );
+            }
+
+            if (shouldSendEmail) {
+              console.log(
+                `Sending inactivity warning email for escrow ${escrowMetadata.escrowAddress} on ${network.name} (${daysRemaining.toFixed(1)} days remaining)`,
+              );
+
+              try {
+                await sendInactivityWarning({
+                  to: escrowMetadata.email,
+                  escrowAddress: escrowMetadata.escrowAddress,
+                  network: network.name,
+                  daysRemaining: daysRemaining,
+                });
+
+                // Update last email sent timestamp only after successful send
+                // This prevents duplicate emails on subsequent checks
+                await updateLastEmailSent(
+                  escrowMetadata.escrowAddress,
+                  network.name,
+                  Date.now(),
+                );
+                console.log(
+                  `Updated lastEmailSent timestamp for escrow ${escrowMetadata.escrowAddress}`,
+                );
+              } catch (emailError: any) {
+                console.error(
+                  `Failed to send email for escrow ${escrowMetadata.escrowAddress}:`,
+                  emailError.message,
+                );
+                // Don't update timestamp if email failed - will retry on next check
+              }
+            } else {
+              console.log(
+                `Email check passed but shouldSendEmail is false for escrow ${escrowMetadata.escrowAddress} on ${network.name}`,
+              );
+            }
+          } else {
+            console.log(
+              `Skipping email for escrow ${escrowMetadata.escrowAddress} on ${network.name}: time until execution (${daysRemaining.toFixed(2)} days) is not within 7-day warning window`,
+            );
+          }
+        } catch (error: any) {
+          console.error(
+            `Error checking inactivity warning for escrow ${escrowMetadata.escrowAddress}:`,
+            error.message,
+          );
+        }
+      }
+    } catch (error: any) {
+      console.error(
+        `Error checking inactivity warnings for network ${network.name}:`,
+        error.message,
+      );
     }
   }
 
@@ -164,6 +315,9 @@ export class KeeperService {
     console.log(`[${new Date().toISOString()}] Running keeper check...`);
 
     for (const network of this.config.networks) {
+      // Check for inactivity warnings first
+      await this.checkInactivityWarnings(network);
+      // Then check for escrows ready to execute
       await this.checkNetwork(network);
     }
 
@@ -232,6 +386,7 @@ export class KeeperService {
 
 /**
  * Create keeper service from environment variables
+ * Uses individual factory address environment variables like the frontend
  */
 export function createKeeperFromEnv(): KeeperService | null {
   const privateKey = process.env.PRIVATE_KEY;
@@ -240,24 +395,69 @@ export function createKeeperFromEnv(): KeeperService | null {
     return null;
   }
 
-  // Parse networks from environment
-  // Format: NETWORKS=network1:factory1:rpc1,network2:factory2:rpc2
-  const networksEnv = process.env.KEEPER_NETWORKS || "";
-  const networks = networksEnv
-    .split(",")
-    .filter((n) => n.trim())
-    .map((networkStr) => {
-      const [name, factoryAddress, rpcUrl] = networkStr.split(":");
-      return {
-        name: name.trim(),
-        factoryAddress: factoryAddress.trim(),
-        rpcUrl: rpcUrl.trim(),
-      };
-    });
+  // Build networks array from factory address environment variables
+  // Format matches frontend: FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, FACTORY_ADDRESS_CITREA
+  const networks: Array<{
+    name: string;
+    factoryAddress: string;
+    rpcUrl: string;
+  }> = [];
+
+  // Ethereum (mainnet and sepolia use the same factory)
+  const ethereumFactory = process.env.FACTORY_ADDRESS_ETHEREUM;
+  if (ethereumFactory && ethereumFactory !== "0x0000000000000000000000000000000000000000") {
+    // Check if we have RPC URLs for both mainnet and sepolia
+    if (process.env.MAINNET_RPC_URL) {
+      networks.push({
+        name: "mainnet",
+        factoryAddress: ethereumFactory,
+        rpcUrl: process.env.MAINNET_RPC_URL,
+      });
+    }
+    if (process.env.SEPOLIA_RPC_URL) {
+      networks.push({
+        name: "sepolia",
+        factoryAddress: ethereumFactory,
+        rpcUrl: process.env.SEPOLIA_RPC_URL,
+      });
+    }
+  }
+
+  // Base (mainnet and sepolia use the same factory)
+  const baseFactory = process.env.FACTORY_ADDRESS_BASE;
+  if (baseFactory && baseFactory !== "0x0000000000000000000000000000000000000000") {
+    // Check if we have RPC URLs for both Base mainnet and Base Sepolia
+    if (process.env.BASE_RPC_URL) {
+      networks.push({
+        name: "base",
+        factoryAddress: baseFactory,
+        rpcUrl: process.env.BASE_RPC_URL,
+      });
+    }
+    if (process.env.BASE_SEPOLIA_RPC_URL) {
+      networks.push({
+        name: "baseSepolia",
+        factoryAddress: baseFactory,
+        rpcUrl: process.env.BASE_SEPOLIA_RPC_URL,
+      });
+    }
+  }
+
+  // Citrea Testnet
+  const citreaFactory = process.env.FACTORY_ADDRESS_CITREA;
+  if (citreaFactory && citreaFactory !== "0x0000000000000000000000000000000000000000") {
+    if (process.env.CITREA_RPC_URL) {
+      networks.push({
+        name: "citreaTestnet",
+        factoryAddress: citreaFactory,
+        rpcUrl: process.env.CITREA_RPC_URL,
+      });
+    }
+  }
 
   if (networks.length === 0) {
     console.error(
-      "No networks configured. Set KEEPER_NETWORKS environment variable.",
+      "No networks configured. Set FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, and/or FACTORY_ADDRESS_CITREA environment variables along with corresponding RPC URLs.",
     );
     return null;
   }

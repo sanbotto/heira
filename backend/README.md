@@ -27,7 +27,10 @@ cp .env.example .env
 
 Required environment variables:
 - `PRIVATE_KEY` - Wallet private key for signing transactions
-- `KEEPER_NETWORKS` - Comma-separated list of networks to monitor (format: `network:factory:rpc`)
+- `FACTORY_ADDRESS_ETHEREUM` - Factory contract address for Ethereum (used for both mainnet and sepolia)
+- `FACTORY_ADDRESS_BASE` - Factory contract address for Base (used for both Base mainnet and Base Sepolia)
+- `FACTORY_ADDRESS_CITREA` - Factory contract address for Citrea Testnet
+- RPC URLs: `MAINNET_RPC_URL`, `SEPOLIA_RPC_URL`, `BASE_RPC_URL`, `BASE_SEPOLIA_RPC_URL`, `CITREA_RPC_URL`
 - `ETHERSCAN_API_KEY` - For contract verification
 
 ### 3. Build
@@ -128,11 +131,21 @@ The keeper service monitors escrow contracts and automatically triggers executio
 
 ### Configuration
 
-Configure networks to monitor in `.env`:
+Configure factory addresses and RPC URLs in `.env`:
 
 ```bash
-KEEPER_NETWORKS=sepolia:0xFactoryAddress:https://rpc.sepolia.org,baseSepolia:0xFactoryAddress:https://sepolia.base.org
+FACTORY_ADDRESS_ETHEREUM=0x...
+FACTORY_ADDRESS_BASE=0x...
+FACTORY_ADDRESS_CITREA=0x...
+
+MAINNET_RPC_URL=https://eth.llamarpc.com
+SEPOLIA_RPC_URL=https://rpc.sepolia.org
+BASE_RPC_URL=https://mainnet.base.org
+BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+CITREA_RPC_URL=https://rpc.testnet.citrea.xyz
 ```
+
+The keeper will automatically monitor all networks where both a factory address and corresponding RPC URL are configured.
 
 ### How It Works
 

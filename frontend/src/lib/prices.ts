@@ -25,7 +25,7 @@ async function fetchPrices(chainId: number): Promise<Record<string, number>> {
 
   const backendUrl = import.meta.env.VITE_BACKEND_API_URL;
   if (!backendUrl) {
-    console.warn("VITE_BACKEND_API_URL not configured");
+    console.warn('VITE_BACKEND_API_URL not configured');
     if (priceCache && priceCache.chainId === chainId) {
       return priceCache.data;
     }
@@ -43,7 +43,7 @@ async function fetchPrices(chainId: number): Promise<Record<string, number>> {
     const data = await response.json();
 
     if (!data.success || !data.prices) {
-      throw new Error("Invalid response from prices API");
+      throw new Error('Invalid response from prices API');
     }
 
     // Update cache
@@ -55,10 +55,10 @@ async function fetchPrices(chainId: number): Promise<Record<string, number>> {
 
     return data.prices;
   } catch (error) {
-    console.error("Failed to fetch prices from backend:", error);
+    console.error('Failed to fetch prices from backend:', error);
 
     if (priceCache && priceCache.chainId === chainId) {
-      console.warn("Using cached price data due to API error");
+      console.warn('Using cached price data due to API error');
       return priceCache.data;
     }
 
@@ -70,10 +70,7 @@ async function fetchPrices(chainId: number): Promise<Record<string, number>> {
  * Get token price
  * Returns price in USD
  */
-export async function getTokenPrice(
-  symbol: string,
-  chainId: number
-): Promise<number | null> {
+export async function getTokenPrice(symbol: string, chainId: number): Promise<number | null> {
   try {
     const prices = await fetchPrices(chainId);
     const upperSymbol = symbol.toUpperCase();
@@ -82,11 +79,11 @@ export async function getTokenPrice(
       return prices[upperSymbol];
     }
 
-    if (upperSymbol === "BASE" && prices.ETH !== undefined) {
+    if (upperSymbol === 'BASE' && prices.ETH !== undefined) {
       return prices.ETH;
     }
 
-    if (upperSymbol === "CBTC" && prices.WBTC !== undefined) {
+    if (upperSymbol === 'CBTC' && prices.WBTC !== undefined) {
       return prices.WBTC;
     }
 
@@ -113,9 +110,9 @@ export async function getTokenPrices(
 
     if (allPrices[upperSymbol] !== undefined) {
       prices[symbol] = allPrices[upperSymbol];
-    } else if (upperSymbol === "BASE" && allPrices.ETH !== undefined) {
+    } else if (upperSymbol === 'BASE' && allPrices.ETH !== undefined) {
       prices[symbol] = allPrices.ETH;
-    } else if (upperSymbol === "CBTC" && allPrices.WBTC !== undefined) {
+    } else if (upperSymbol === 'CBTC' && allPrices.WBTC !== undefined) {
       prices[symbol] = allPrices.WBTC;
     }
   }
