@@ -10,25 +10,17 @@ const __dirname = path.dirname(__filename);
 
 export const verifyEscrowRouter = Router();
 
-/**
- * API endpoint to verify escrow contracts automatically
- * POST /api/verify-escrow
- *
- * Body:
- * {
- *   escrowAddress: string,
- *   mainWallet: string,
- *   inactivityPeriod: string | number,
- *   owner: string,
- *   network: string (e.g., 'sepolia', 'baseSepolia')
- * }
- */
+const VALID_NETWORKS = ["sepolia", "baseSepolia", "mainnet", "base", "citrea-testnet", "citreaTestnet"];
+
+function isBlockscoutNetwork(network: string): boolean {
+  return network === "citrea-testnet" || network === "citreaTestnet";
+}
+
 verifyEscrowRouter.post("/", async (req, res) => {
   try {
     const { escrowAddress, mainWallet, inactivityPeriod, owner, network } =
       req.body;
 
-    // Validate required fields
     if (
       !escrowAddress ||
       !mainWallet ||
@@ -43,12 +35,10 @@ verifyEscrowRouter.post("/", async (req, res) => {
       });
     }
 
-    // Validate network
-    const validNetworks = ["sepolia", "baseSepolia", "mainnet", "base"];
-    if (!validNetworks.includes(network)) {
+    if (!VALID_NETWORKS.includes(network)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid network. Must be one of: ${validNetworks.join(", ")}`,
+        message: `Invalid network. Must be one of: ${VALID_NETWORKS.join(", ")}`,
       });
     }
 
@@ -66,10 +56,7 @@ verifyEscrowRouter.post("/", async (req, res) => {
       });
     }
 
-    // Build the command to run the verification script
-    // Escape special characters in addresses to prevent shell injection
     const escapeShell = (str: string) => `"${str.replace(/"/g, '\\"')}"`;
-
     const envVars = [
       `CONTRACT_ADDRESS=${escapeShell(escrowAddress)}`,
       `MAIN_WALLET=${escapeShell(mainWallet)}`,
@@ -87,7 +74,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
     console.log(`Working directory: ${contractsDir}`);
 
     try {
-      // Clean artifacts first
       console.log("Cleaning old artifacts...");
       try {
         await execAsync(cleanCommand, {
@@ -99,7 +85,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
         console.warn("Clean warning (continuing anyway):", cleanError.message);
       }
 
-      // Compile contracts
       console.log("Compiling contracts...");
       try {
         await execAsync(compileCommand, {
@@ -111,7 +96,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
       } catch (compileError: any) {
         const compileOutput =
           (compileError.stdout || "") + (compileError.stderr || "");
-        // Only fail if there are actual errors (not just warnings)
         if (
           compileOutput.toLowerCase().includes("error") &&
           !compileOutput.toLowerCase().includes("warning")
@@ -126,7 +110,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
         console.warn("Compilation completed with warnings, continuing...");
       }
 
-      // Small delay to ensure file system is synced
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       console.log("Running verification script...");
@@ -172,8 +155,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
       console.error("Verification error:", execError.message);
       console.error("Error output:", errorOutput);
 
-      // If the script exited with code 0 but there's output about "already verified", treat as success
-      // The verify script handles "already verified" cases and exits successfully
       if (
         execError.code === 0 ||
         errorOutput.toLowerCase().includes("already verified")
@@ -191,8 +172,17 @@ verifyEscrowRouter.post("/", async (req, res) => {
         });
       }
 
-      // Only return error if it's a real failure (non-zero exit code and not "already verified")
-      // Extract error message
+      if (isBlockscoutNetwork(network) && errorOutput.includes("Unable to verify")) {
+        console.warn("Blockscout verification failed, but contract is still functional");
+        return res.json({
+          success: true,
+          message: "Contract deployed successfully. Verification failed on Blockscout (this is common and non-fatal). Contract is fully functional.",
+          explorerUrl: `https://explorer.testnet.citrea.xyz/address/${escrowAddress}`,
+          alreadyVerified: false,
+          verificationNote: "Blockscout verification can be unreliable. Contract functionality is not affected.",
+        });
+      }
+
       let errorMessage = "Verification failed";
       if (
         errorOutput.includes("bytecode") &&
@@ -201,7 +191,6 @@ verifyEscrowRouter.post("/", async (req, res) => {
         errorMessage =
           "Bytecode mismatch: The deployed contract bytecode does not match the compiled contract. Please ensure compiler settings match exactly.";
       } else if (errorOutput) {
-        // Try to extract a meaningful error message
         const errorMatch = errorOutput.match(/Error:?\s*(.+?)(?:\n|$)/i);
         if (errorMatch) {
           errorMessage = errorMatch[1].trim();

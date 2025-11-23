@@ -9,7 +9,7 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 
 ## Features
 
-### Priority 1 (Implemented)
+### Phase 1 (Implemented)
 - ✅ Smart contract escrow system with factory pattern
 - ✅ ENS name and avatar support
 - ✅ Wallet connection (MetaMask, WalletConnect, Ledger)
@@ -19,16 +19,16 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 - ✅ Escrow creation UI
 - ✅ Dashboard with countdown timers
 
-### Priority 2 (Implemented)
+### Phase 2 (Implemented)
 - ✅ Filecoin hosting (see [FILECOIN_DEPLOYMENT.md](./FILECOIN_DEPLOYMENT.md))
 - ✅ Backend API and keeper service (see [backend/README.md](./backend/README.md))
-- World ID authentication
+- ✅ Fluence deployment
 
-### Priority 3 (Planned)
+### Phase 3 (WIP)
+- ✅ BTC support
+- AuditAgent verification (will be done after final changes to SCs)
 - Coinbase Embedded Wallets
-- BTC support
-- AuditAgent verification
-- Fluence deployment
+- World ID authentication
 
 ## Project Structure
 

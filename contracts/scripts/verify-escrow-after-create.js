@@ -1,14 +1,6 @@
 const hre = require("hardhat");
+const { getExplorerUrl, isAlreadyVerified } = require("./utils");
 
-/**
- * Verify an escrow contract immediately after creation
- *
- * This script fetches the escrow creation event from a transaction hash
- * and automatically verifies the escrow contract.
- *
- * Usage:
- *   TX_HASH=0x... FACTORY_ADDRESS=0x... npx hardhat run scripts/verify-escrow-after-create.js --network sepolia
- */
 async function main() {
   const txHash = process.env.TX_HASH;
   const factoryAddress = process.env.FACTORY_ADDRESS;
@@ -19,10 +11,6 @@ async function main() {
     console.log(
       "  TX_HASH=0x... FACTORY_ADDRESS=0x... npx hardhat run scripts/verify-escrow-after-create.js --network <network>"
     );
-    console.log("\nExample:");
-    console.log(
-      "  TX_HASH=0x123... FACTORY_ADDRESS=0x456... npx hardhat run scripts/verify-escrow-after-create.js --network sepolia"
-    );
     process.exit(1);
   }
 
@@ -31,7 +19,6 @@ async function main() {
   console.log(`Transaction Hash: ${txHash}`);
   console.log(`Factory Address: ${factoryAddress}`);
 
-  // Check if API key is configured
   const apiKey = hre.config.etherscan?.apiKey?.[network] || hre.config.etherscan?.apiKey;
   if (!apiKey || apiKey === "") {
     console.error("Error: Etherscan API key not configured for this network");
@@ -41,21 +28,16 @@ async function main() {
 
   try {
     const provider = hre.ethers.provider;
-
-    // Wait for transaction to be confirmed
     console.log("Waiting for transaction confirmation...");
-    const receipt = await provider.waitForTransaction(txHash, 1, 60000); // Wait up to 60 seconds
+    const receipt = await provider.waitForTransaction(txHash, 1, 60000);
 
     console.log(`Transaction confirmed in block ${receipt.blockNumber}`);
 
-    // Factory ABI - we only need the EscrowCreated event
     const factoryABI = [
       "event EscrowCreated(address indexed escrow, address indexed owner, address indexed mainWallet, uint256 inactivityPeriod)",
     ];
-
     const factory = new hre.ethers.Contract(factoryAddress, factoryABI, provider);
 
-    // Find EscrowCreated event in the transaction receipt
     const event = receipt.logs
       .map((log) => {
         try {
@@ -81,12 +63,9 @@ async function main() {
     console.log(`  Main Wallet: ${mainWallet}`);
     console.log(`  Inactivity Period: ${inactivityPeriod}`);
 
-    // Wait a bit for the contract to be indexed on Etherscan
-    console.log("\nWaiting for contract to be indexed on Etherscan...");
+    console.log("\nWaiting for contract to be indexed...");
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Verify the escrow contract
-    // Use force flag to always verify (even if already verified)
     console.log("Starting verification...");
     await hre.run("verify:verify", {
       address: escrowAddress,
@@ -97,22 +76,13 @@ async function main() {
     console.log("\n✅ Escrow contract verified successfully!");
     console.log(`View on explorer: ${getExplorerUrl(network, escrowAddress)}`);
   } catch (error) {
-    // Check if it's an "already verified" case, which is actually a success
-    const errorMessage = error.message || String(error);
-    const isAlreadyVerified =
-      errorMessage.includes("Already Verified") ||
-      errorMessage.includes("already verified") ||
-      errorMessage.includes("Contract source code already verified");
-
-    if (isAlreadyVerified) {
-      // This is a success case, contract is already verified
+    if (isAlreadyVerified(error)) {
       console.log("\n✅ Escrow contract is already verified!");
       console.log(`View on explorer: ${getExplorerUrl(network, escrowAddress)}`);
       process.exit(0);
     } else {
-      // Real error
       console.error("\n❌ Verification failed:");
-      console.error("Error message:", errorMessage);
+      console.error("Error message:", error.message);
       if (error.stack) {
         console.error("\nFull error details:");
         console.error(error.stack);
@@ -120,16 +90,6 @@ async function main() {
       process.exit(1);
     }
   }
-}
-
-function getExplorerUrl(network, address) {
-  const explorers = {
-    mainnet: `https://etherscan.io/address/${address}`,
-    sepolia: `https://sepolia.etherscan.io/address/${address}`,
-    base: `https://basescan.org/address/${address}`,
-    baseSepolia: `https://sepolia.basescan.org/address/${address}`,
-  };
-  return explorers[network] || `https://explorer.unknown.network/address/${address}`;
 }
 
 main()

@@ -64,6 +64,8 @@
         return 'Base';
       case 84532:
         return 'Base Sepolia';
+      case 5115:
+        return 'Citrea Testnet';
       default:
         return `Chain ${chainId}`;
     }
