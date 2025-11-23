@@ -253,7 +253,16 @@ async function verifyEscrowContract(
   const networkName = getNetworkName(chainId);
 
   try {
-    const response = await fetch('/api/verify-escrow', {
+    // Call backend API directly (frontend is static, no server-side API routes)
+    const backendUrl = import.meta.env.VITE_BACKEND_API_URL;
+
+    if (!backendUrl) {
+      throw new Error(
+        'Backend API URL not configured. Please set VITE_BACKEND_API_URL environment variable.'
+      );
+    }
+
+    const response = await fetch(`${backendUrl}/api/verify-escrow`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -583,10 +592,10 @@ export async function createEscrow(
     // If simulation didn't throw, provide generic error
     throw new Error(
       'Transaction failed (reverted). Common causes:\n' +
-      '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
-      '- Invalid address format\n' +
-      '- Invalid inactivity period\n' +
-      `Transaction hash: ${hash}`
+        '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
+        '- Invalid address format\n' +
+        '- Invalid inactivity period\n' +
+        `Transaction hash: ${hash}`
     );
   }
 
@@ -632,9 +641,9 @@ export async function createEscrow(
   if (!escrowAddress) {
     throw new Error(
       'Failed to find EscrowCreated event in transaction receipt. ' +
-      'The transaction may have succeeded but the event was not emitted. ' +
-      `Transaction hash: ${hash}. ` +
-      'Please verify the factory contract address is correct.'
+        'The transaction may have succeeded but the event was not emitted. ' +
+        `Transaction hash: ${hash}. ` +
+        'Please verify the factory contract address is correct.'
     );
   }
 
@@ -700,17 +709,18 @@ export async function createEscrow(
       const chainIds = addressBeneficiaries.map(b => BigInt(b.chainId));
 
       // Get token swap configs from beneficiaries
-      const tokenAddresses = addressBeneficiaries.map(b =>
-        b.tokenAddress || ('0x0000000000000000000000000000000000000000' as Address)
+      const tokenAddresses = addressBeneficiaries.map(
+        b => b.tokenAddress || ('0x0000000000000000000000000000000000000000' as Address)
       );
       const shouldSwaps = addressBeneficiaries.map(b => b.shouldSwap || false);
       const targetTokens = addressBeneficiaries.map((b, i) => {
-        const targetToken = b.targetToken || ('0x0000000000000000000000000000000000000000' as Address);
+        const targetToken =
+          b.targetToken || ('0x0000000000000000000000000000000000000000' as Address);
         // Validate: if shouldSwap is true, targetToken must not be zero address
         if (b.shouldSwap && targetToken === '0x0000000000000000000000000000000000000000') {
           throw new Error(
             `Beneficiary ${i + 1} (${b.recipient}) has shouldSwap=true but targetToken is not set. ` +
-            `Please ensure targetToken is configured when enabling swaps.`
+              `Please ensure targetToken is configured when enabling swaps.`
           );
         }
         return targetToken;
@@ -748,14 +758,21 @@ export async function createEscrow(
         ]);
 
         if (contractStatus !== 0) {
-          throw new Error(`Escrow contract is inactive (status: ${contractStatus}). Contract must be Active (0) to add beneficiaries.`);
+          throw new Error(
+            `Escrow contract is inactive (status: ${contractStatus}). Contract must be Active (0) to add beneficiaries.`
+          );
         }
 
         if (contractOwner.toLowerCase() !== account.toLowerCase()) {
-          throw new Error(`You are not the owner of this escrow. Owner: ${contractOwner}, Your address: ${account}`);
+          throw new Error(
+            `You are not the owner of this escrow. Owner: ${contractOwner}, Your address: ${account}`
+          );
         }
       } catch (preCheckError: any) {
-        if (preCheckError.message.includes('Escrow contract is inactive') || preCheckError.message.includes('not the owner')) {
+        if (
+          preCheckError.message.includes('Escrow contract is inactive') ||
+          preCheckError.message.includes('not the owner')
+        ) {
           throw preCheckError;
         }
         console.warn('Pre-flight checks failed, continuing with simulation:', preCheckError);
@@ -768,13 +785,17 @@ export async function createEscrow(
         validationErrors.push('No recipients provided');
       }
 
-      if (recipients.length !== percentages.length || recipients.length !== chainIds.length ||
-        recipients.length !== tokenAddresses.length || recipients.length !== shouldSwaps.length ||
-        recipients.length !== targetTokens.length) {
+      if (
+        recipients.length !== percentages.length ||
+        recipients.length !== chainIds.length ||
+        recipients.length !== tokenAddresses.length ||
+        recipients.length !== shouldSwaps.length ||
+        recipients.length !== targetTokens.length
+      ) {
         validationErrors.push(
           `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-          `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-          `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
         );
       }
 
@@ -784,10 +805,17 @@ export async function createEscrow(
         }
         const percentage = Number(percentages[i]);
         if (percentage <= 0 || percentage > 10000) {
-          validationErrors.push(`Beneficiary ${i + 1}: Invalid percentage ${percentage} (must be 1-10000 basis points)`);
+          validationErrors.push(
+            `Beneficiary ${i + 1}: Invalid percentage ${percentage} (must be 1-10000 basis points)`
+          );
         }
-        if (shouldSwaps[i] && (!targetTokens[i] || targetTokens[i] === '0x0000000000000000000000000000000000000000')) {
-          validationErrors.push(`Beneficiary ${i + 1}: shouldSwap=true but targetToken is zero address`);
+        if (
+          shouldSwaps[i] &&
+          (!targetTokens[i] || targetTokens[i] === '0x0000000000000000000000000000000000000000')
+        ) {
+          validationErrors.push(
+            `Beneficiary ${i + 1}: shouldSwap=true but targetToken is zero address`
+          );
         }
       });
 
@@ -796,17 +824,23 @@ export async function createEscrow(
       }
 
       if (contractStatus !== null && contractStatus !== 0) {
-        throw new Error(`Escrow contract is inactive (status: ${contractStatus}). Contract must be Active (0) to add beneficiaries.`);
+        throw new Error(
+          `Escrow contract is inactive (status: ${contractStatus}). Contract must be Active (0) to add beneficiaries.`
+        );
       }
 
       if (contractOwner && contractOwner.toLowerCase() !== account.toLowerCase()) {
-        throw new Error(`You are not the owner of this escrow. Owner: ${contractOwner}, Your address: ${account}`);
+        throw new Error(
+          `You are not the owner of this escrow. Owner: ${contractOwner}, Your address: ${account}`
+        );
       }
 
       // Verify contract has code
       const code = await publicClient.getBytecode({ address: escrowAddr });
       if (!code || code === '0x') {
-        throw new Error(`No contract code found at address ${escrowAddr}. Is this a valid escrow contract?`);
+        throw new Error(
+          `No contract code found at address ${escrowAddr}. Is this a valid escrow contract?`
+        );
       }
 
       // Try to read contract state directly to verify it's working
@@ -818,21 +852,27 @@ export async function createEscrow(
       // Try reading various contract functions to verify it's the right contract
       try {
         const [readStatus, readOwner, readMainWallet] = await Promise.all([
-          publicClient.readContract({
-            address: escrowAddr,
-            abi: ESCROW_ABI,
-            functionName: 'status',
-          }).catch(() => null),
-          publicClient.readContract({
-            address: escrowAddr,
-            abi: ESCROW_ABI,
-            functionName: 'owner',
-          }).catch(() => null),
-          publicClient.readContract({
-            address: escrowAddr,
-            abi: ESCROW_ABI,
-            functionName: 'mainWallet',
-          }).catch(() => null),
+          publicClient
+            .readContract({
+              address: escrowAddr,
+              abi: ESCROW_ABI,
+              functionName: 'status',
+            })
+            .catch(() => null),
+          publicClient
+            .readContract({
+              address: escrowAddr,
+              abi: ESCROW_ABI,
+              functionName: 'owner',
+            })
+            .catch(() => null),
+          publicClient
+            .readContract({
+              address: escrowAddr,
+              abi: ESCROW_ABI,
+              functionName: 'mainWallet',
+            })
+            .catch(() => null),
         ]);
 
         console.log('Contract read results:', {
@@ -844,14 +884,19 @@ export async function createEscrow(
         });
 
         if (readOwner && readOwner.toLowerCase() !== account.toLowerCase()) {
-          throw new Error(`Contract owner mismatch. Contract owner: ${readOwner}, Your address: ${account}`);
+          throw new Error(
+            `Contract owner mismatch. Contract owner: ${readOwner}, Your address: ${account}`
+          );
         }
 
         if (readStatus !== null && readStatus !== 0) {
           throw new Error(`Contract status is ${readStatus} (expected 0 for Active)`);
         }
       } catch (readError: any) {
-        if (readError.message.includes('owner mismatch') || readError.message.includes('status is')) {
+        if (
+          readError.message.includes('owner mismatch') ||
+          readError.message.includes('status is')
+        ) {
           throw readError;
         }
         console.warn('Could not read contract state:', readError);
@@ -864,10 +909,15 @@ export async function createEscrow(
           functionName: 'addBeneficiariesBatch',
           args: [recipients, percentages, chainIds, tokenAddresses, shouldSwaps, targetTokens],
         });
-        console.log('Function data encoded successfully:', testFunctionData.substring(0, 20) + '...');
+        console.log(
+          'Function data encoded successfully:',
+          testFunctionData.substring(0, 20) + '...'
+        );
       } catch (encodeError: any) {
         console.error('Failed to encode function data:', encodeError);
-        throw new Error(`Failed to encode transaction: ${encodeError.message}. Please check that all parameters are valid.`);
+        throw new Error(
+          `Failed to encode transaction: ${encodeError.message}. Please check that all parameters are valid.`
+        );
       }
 
       // Check if contract supports new signature (6 params) or old signature (3 params)
@@ -891,10 +941,12 @@ export async function createEscrow(
         const errorData = simError?.cause?.data || simError?.data || '';
 
         // Check if it's a function selector error (old contract)
-        if (errorMsg.includes('does not exist') ||
+        if (
+          errorMsg.includes('does not exist') ||
           errorMsg.includes('function selector') ||
           errorMsg.includes('invalid opcode') ||
-          (typeof errorData === 'string' && errorData.includes('function selector'))) {
+          (typeof errorData === 'string' && errorData.includes('function selector'))
+        ) {
           // Try old signature (3 params only)
           try {
             const OLD_ABI = [
@@ -922,7 +974,10 @@ export async function createEscrow(
             // Old signature works - this is an old contract
             useOldSignature = true;
             console.warn('⚠️ Detected old contract version. Token swap configs will be ignored.');
-            onProgress?.('⚠️ This escrow was created with an old contract version. Token swap configurations cannot be added. Please create a new escrow to use token swap features.', 'info');
+            onProgress?.(
+              '⚠️ This escrow was created with an old contract version. Token swap configurations cannot be added. Please create a new escrow to use token swap features.',
+              'info'
+            );
           } catch (oldSimError) {
             // Old signature also fails - this is a different error, continue with new signature handling
             useOldSignature = false;
@@ -1034,13 +1089,17 @@ export async function createEscrow(
               abi: ESCROW_ABI,
               data: errorData as `0x${string}`,
             });
-            errorMsg = decoded.errorName || (decoded.args ? JSON.stringify(decoded.args) : '') || errorData;
+            errorMsg =
+              decoded.errorName || (decoded.args ? JSON.stringify(decoded.args) : '') || errorData;
 
             // If it's a revert(string) error (selector 0x08c379a0), decode the string
             if (errorData.startsWith('0x08c379a0')) {
               try {
                 const dataWithoutSelector = ('0x' + errorData.slice(10)) as `0x${string}`;
-                const decodedString = decodeAbiParameters([{ type: 'string' }], dataWithoutSelector);
+                const decodedString = decodeAbiParameters(
+                  [{ type: 'string' }],
+                  dataWithoutSelector
+                );
                 errorMsg = decodedString[0] as string;
               } catch {
                 // Fall through to use decoded.errorName
@@ -1053,31 +1112,41 @@ export async function createEscrow(
         }
 
         // If we still don't have a good error message, try estimateGas (sometimes gives better errors)
-        if (errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) {
+        if (
+          errorMsg === 'Transaction simulation failed' ||
+          errorMsg.includes('execution reverted')
+        ) {
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds, tokenAddresses, shouldSwaps, targetTokens],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             await publicClient.estimateGas({
               account,
@@ -1085,7 +1154,8 @@ export async function createEscrow(
               data: functionData,
             });
           } catch (gasError: any) {
-            const gasErrorData = gasError?.cause?.data || gasError?.data || gasError?.cause?.error?.data;
+            const gasErrorData =
+              gasError?.cause?.data || gasError?.data || gasError?.cause?.error?.data;
 
             if (gasErrorData && typeof gasErrorData === 'string' && gasErrorData.startsWith('0x')) {
               try {
@@ -1093,13 +1163,19 @@ export async function createEscrow(
                   abi: ESCROW_ABI,
                   data: gasErrorData as `0x${string}`,
                 });
-                errorMsg = decoded.errorName || (decoded.args ? JSON.stringify(decoded.args) : '') || gasErrorData;
+                errorMsg =
+                  decoded.errorName ||
+                  (decoded.args ? JSON.stringify(decoded.args) : '') ||
+                  gasErrorData;
 
                 // Decode revert(string) if applicable
                 if (gasErrorData.startsWith('0x08c379a0')) {
                   try {
                     const dataWithoutSelector = ('0x' + gasErrorData.slice(10)) as `0x${string}`;
-                    const decodedString = decodeAbiParameters([{ type: 'string' }], dataWithoutSelector);
+                    const decodedString = decodeAbiParameters(
+                      [{ type: 'string' }],
+                      dataWithoutSelector
+                    );
                     errorMsg = decodedString[0] as string;
                   } catch {
                     // Fall through
@@ -1111,43 +1187,53 @@ export async function createEscrow(
             }
 
             // Try other error message sources from gas estimation error
-            if (errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) {
+            if (
+              errorMsg === 'Transaction simulation failed' ||
+              errorMsg.includes('execution reverted')
+            ) {
               errorMsg =
-                gasError?.cause?.reason ||
-                gasError?.shortMessage ||
-                gasError?.message ||
-                errorMsg;
+                gasError?.cause?.reason || gasError?.shortMessage || gasError?.message || errorMsg;
             }
           }
         }
 
         // If we still don't have a good error message, try calling the contract directly
-        if (errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) {
+        if (
+          errorMsg === 'Transaction simulation failed' ||
+          errorMsg.includes('execution reverted')
+        ) {
           try {
             // Try to call the contract directly to get revert reason
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds, tokenAddresses, shouldSwaps, targetTokens],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             await publicClient.call({
               to: escrowAddr,
@@ -1155,21 +1241,32 @@ export async function createEscrow(
               account,
             });
           } catch (callError: any) {
-            const callErrorData = callError?.cause?.data || callError?.data || callError?.cause?.error?.data;
+            const callErrorData =
+              callError?.cause?.data || callError?.data || callError?.cause?.error?.data;
 
-            if (callErrorData && typeof callErrorData === 'string' && callErrorData.startsWith('0x')) {
+            if (
+              callErrorData &&
+              typeof callErrorData === 'string' &&
+              callErrorData.startsWith('0x')
+            ) {
               try {
                 const decoded = decodeErrorResult({
                   abi: ESCROW_ABI,
                   data: callErrorData as `0x${string}`,
                 });
-                errorMsg = decoded.errorName || (decoded.args ? JSON.stringify(decoded.args) : '') || callErrorData;
+                errorMsg =
+                  decoded.errorName ||
+                  (decoded.args ? JSON.stringify(decoded.args) : '') ||
+                  callErrorData;
 
                 // Decode revert(string) if applicable
                 if (callErrorData.startsWith('0x08c379a0')) {
                   try {
                     const dataWithoutSelector = ('0x' + callErrorData.slice(10)) as `0x${string}`;
-                    const decodedString = decodeAbiParameters([{ type: 'string' }], dataWithoutSelector);
+                    const decodedString = decodeAbiParameters(
+                      [{ type: 'string' }],
+                      dataWithoutSelector
+                    );
                     errorMsg = decodedString[0] as string;
                   } catch {
                     // Fall through
@@ -1181,7 +1278,10 @@ export async function createEscrow(
             }
 
             // Try other error message sources from call error
-            if (errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) {
+            if (
+              errorMsg === 'Transaction simulation failed' ||
+              errorMsg.includes('execution reverted')
+            ) {
               errorMsg =
                 callError?.cause?.reason ||
                 callError?.shortMessage ||
@@ -1192,7 +1292,10 @@ export async function createEscrow(
         }
 
         // Final fallback to other error message sources
-        if (errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) {
+        if (
+          errorMsg === 'Transaction simulation failed' ||
+          errorMsg.includes('execution reverted')
+        ) {
           errorMsg =
             simError?.cause?.reason ||
             simError?.shortMessage ||
@@ -1201,31 +1304,42 @@ export async function createEscrow(
         }
 
         // Try one more method: use call with the exact same parameters
-        if ((errorMsg === 'Transaction simulation failed' || errorMsg.includes('execution reverted')) && !errorData) {
+        if (
+          (errorMsg === 'Transaction simulation failed' ||
+            errorMsg.includes('execution reverted')) &&
+          !errorData
+        ) {
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds, tokenAddresses, shouldSwaps, targetTokens],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             const result = await publicClient.call({
               to: escrowAddr,
@@ -1244,19 +1358,29 @@ export async function createEscrow(
               callError?.cause?.error?.data ||
               callError?.details?.data;
 
-            if (callErrorData && typeof callErrorData === 'string' && callErrorData.startsWith('0x')) {
+            if (
+              callErrorData &&
+              typeof callErrorData === 'string' &&
+              callErrorData.startsWith('0x')
+            ) {
               errorData = callErrorData;
               try {
                 const decoded = decodeErrorResult({
                   abi: ESCROW_ABI,
                   data: callErrorData as `0x${string}`,
                 });
-                errorMsg = decoded.errorName || (decoded.args ? JSON.stringify(decoded.args) : '') || callErrorData;
+                errorMsg =
+                  decoded.errorName ||
+                  (decoded.args ? JSON.stringify(decoded.args) : '') ||
+                  callErrorData;
 
                 if (callErrorData.startsWith('0x08c379a0')) {
                   try {
                     const dataWithoutSelector = ('0x' + callErrorData.slice(10)) as `0x${string}`;
-                    const decodedString = decodeAbiParameters([{ type: 'string' }], dataWithoutSelector);
+                    const decodedString = decodeAbiParameters(
+                      [{ type: 'string' }],
+                      dataWithoutSelector
+                    );
                     errorMsg = decodedString[0] as string;
                   } catch {
                     // Fall through
@@ -1288,7 +1412,10 @@ export async function createEscrow(
         const errorParts = [`Cannot add beneficiaries: ${errorMsg}`];
 
         // Add helpful hints based on common issues
-        if (errorMsg.includes('execution reverted') || errorMsg === 'Transaction simulation failed') {
+        if (
+          errorMsg.includes('execution reverted') ||
+          errorMsg === 'Transaction simulation failed'
+        ) {
           errorParts.push(
             'Possible causes:',
             '- Contract is inactive (check status)',
@@ -1352,7 +1479,9 @@ export async function createEscrow(
       }
       console.log('   Transaction hash:', beneficiaryHash);
       onProgress?.('Waiting for beneficiary transaction confirmation...', 'info');
-      const beneficiaryReceipt = await publicClient.waitForTransactionReceipt({ hash: beneficiaryHash });
+      const beneficiaryReceipt = await publicClient.waitForTransactionReceipt({
+        hash: beneficiaryHash,
+      });
 
       // Check if transaction succeeded
       if (beneficiaryReceipt.status === 'reverted') {
@@ -1402,27 +1531,40 @@ export async function createEscrow(
         const validationErrors: string[] = [];
 
         // Check array lengths
-        if (recipients.length !== percentages.length || recipients.length !== chainIds.length ||
-          recipients.length !== tokenAddresses.length || recipients.length !== shouldSwaps.length ||
-          recipients.length !== targetTokens.length) {
+        if (
+          recipients.length !== percentages.length ||
+          recipients.length !== chainIds.length ||
+          recipients.length !== tokenAddresses.length ||
+          recipients.length !== shouldSwaps.length ||
+          recipients.length !== targetTokens.length
+        ) {
           validationErrors.push(
             `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+              `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+              `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
           );
         }
 
         // Check each beneficiary
         recipients.forEach((recipient, i) => {
           if (recipient === '0x0000000000000000000000000000000000000000' || !recipient) {
-            validationErrors.push(`Beneficiary ${i + 1}: Invalid recipient (zero address or empty)`);
+            validationErrors.push(
+              `Beneficiary ${i + 1}: Invalid recipient (zero address or empty)`
+            );
           }
           const percentage = Number(percentages[i]);
           if (percentage <= 0 || percentage > 10000) {
-            validationErrors.push(`Beneficiary ${i + 1}: Invalid percentage ${percentage} (must be 1-10000 basis points)`);
+            validationErrors.push(
+              `Beneficiary ${i + 1}: Invalid percentage ${percentage} (must be 1-10000 basis points)`
+            );
           }
-          if (shouldSwaps[i] && (targetTokens[i] === '0x0000000000000000000000000000000000000000' || !targetTokens[i])) {
-            validationErrors.push(`Beneficiary ${i + 1}: shouldSwap=true but targetToken is zero address`);
+          if (
+            shouldSwaps[i] &&
+            (targetTokens[i] === '0x0000000000000000000000000000000000000000' || !targetTokens[i])
+          ) {
+            validationErrors.push(
+              `Beneficiary ${i + 1}: shouldSwap=true but targetToken is zero address`
+            );
           }
         });
 
@@ -1434,30 +1576,28 @@ export async function createEscrow(
             functionName: 'status',
           });
           if (contractStatus !== 0) {
-            validationErrors.push(`Contract status is ${contractStatus} (0=Active, 1=Inactive). Contract must be Active.`);
+            validationErrors.push(
+              `Contract status is ${contractStatus} (0=Active, 1=Inactive). Contract must be Active.`
+            );
           }
         } catch (statusError) {
           console.warn('Could not check contract status:', statusError);
         }
 
         // Build error message
-        const errorParts = [
-          revertReason,
-          ...validationErrors,
-        ];
+        const errorParts = [revertReason, ...validationErrors];
 
         if (simErrorDetails) {
           console.error('Simulation error details:', simErrorDetails);
         }
 
-        const errorMessage = errorParts.length > 0
-          ? errorParts.join('. ')
-          : 'Transaction reverted for unknown reason';
+        const errorMessage =
+          errorParts.length > 0 ? errorParts.join('. ') : 'Transaction reverted for unknown reason';
 
         throw new Error(
           `Failed to add beneficiaries: ${errorMessage}. ` +
-          `Transaction hash: ${beneficiaryHash}. ` +
-          `View on Etherscan: https://sepolia.etherscan.io/tx/${beneficiaryHash}`
+            `Transaction hash: ${beneficiaryHash}. ` +
+            `View on Etherscan: https://sepolia.etherscan.io/tx/${beneficiaryHash}`
         );
       }
     }
@@ -1512,8 +1652,8 @@ export async function createEscrow(
         }
         throw new Error(
           `Failed to add ENS beneficiary ${beneficiary.recipient}: ${revertReason}. ` +
-          `Transaction hash: ${ensHash}. ` +
-          `Please check the transaction on Etherscan for details.`
+            `Transaction hash: ${ensHash}. ` +
+            `Please check the transaction on Etherscan for details.`
         );
       }
     }
@@ -1531,20 +1671,14 @@ export async function createEscrow(
   // Request USDC approvals on all relevant chains if mainWallet matches connected account
   if (resolvedMainWalletAddress.toLowerCase() === account.toLowerCase()) {
     try {
-      onProgress?.(
-        'Requesting USDC approvals on all relevant chains...',
-        'info'
-      );
+      onProgress?.('Requesting USDC approvals on all relevant chains...', 'info');
       await requestUSDCApprovalsOnAllChains(
         escrowAddr,
         chainId,
         resolvedMainWalletAddress,
         onProgress
       );
-      onProgress?.(
-        '✅ USDC approvals completed on all relevant chains',
-        'success'
-      );
+      onProgress?.('✅ USDC approvals completed on all relevant chains', 'success');
     } catch (error) {
       // Don't fail escrow creation if approvals fail - just warn
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -1560,7 +1694,7 @@ export async function createEscrow(
     const chainNames = chainsToCheck.map(getChainName).join(' and ');
     onProgress?.(
       `⚠️ Please ensure USDC is approved for this escrow on ${chainNames}. ` +
-      `The main wallet (${resolvedMainWalletAddress}) needs to approve USDC on all relevant chains.`,
+        `The main wallet (${resolvedMainWalletAddress}) needs to approve USDC on all relevant chains.`,
       'info'
     );
   }
@@ -1598,7 +1732,10 @@ export async function createEscrow(
     } else {
       // Verification failed, but don't fail the entire operation
       console.warn('⚠️ Automatic verification failed:', result.message);
-      onProgress?.(`Verification had issues: ${result.message}. Contract may still be verified - check Etherscan.`, 'info');
+      onProgress?.(
+        `Verification had issues: ${result.message}. Contract may still be verified - check Etherscan.`,
+        'info'
+      );
     }
   } catch (error) {
     // Don't fail the entire operation if verification fails
@@ -1607,12 +1744,16 @@ export async function createEscrow(
 
     // Check if error message indicates contract might be verified anyway
     const errorLower = errorMsg.toLowerCase();
-    const mightBeVerified = errorLower.includes('already verified') ||
-      errorLower.includes('bytecode') && errorLower.includes('verified');
+    const mightBeVerified =
+      errorLower.includes('already verified') ||
+      (errorLower.includes('bytecode') && errorLower.includes('verified'));
 
     if (mightBeVerified) {
       console.log('⚠️ Verification reported issues, but contract may be verified on Etherscan');
-      onProgress?.('Verification had issues, but contract appears to be verified. Please check Etherscan to confirm.', 'info');
+      onProgress?.(
+        'Verification had issues, but contract appears to be verified. Please check Etherscan to confirm.',
+        'info'
+      );
     } else {
       console.error('⚠️ Automatic verification failed:', error);
       onProgress?.(`Verification failed: ${errorMsg}. You can verify manually later.`, 'error');
@@ -1736,14 +1877,16 @@ export async function deactivateEscrow(
 export async function getBeneficiaries(
   escrowAddress: Address,
   chainId: SupportedChainId
-): Promise<Array<{
-  recipient: Address;
-  percentage: bigint;
-  chainId: bigint;
-  tokenAddress: Address;
-  shouldSwap: boolean;
-  targetToken: Address;
-}>> {
+): Promise<
+  Array<{
+    recipient: Address;
+    percentage: bigint;
+    chainId: bigint;
+    tokenAddress: Address;
+    shouldSwap: boolean;
+    targetToken: Address;
+  }>
+> {
   const publicClient = getPublicClient(chainId);
   const result = await publicClient.readContract({
     address: escrowAddress,
@@ -1796,7 +1939,9 @@ const ERC20_APPROVE_ABI = [
  * @param deploymentChainId The chain ID where the escrow is deployed
  * @return Array of chain IDs that should be checked
  */
-export function getChainsToCheckForApprovals(deploymentChainId: SupportedChainId | number): number[] {
+export function getChainsToCheckForApprovals(
+  deploymentChainId: SupportedChainId | number
+): number[] {
   const chainId = Number(deploymentChainId);
   if (chainId === 1 || chainId === 8453) {
     // Mainnet chains - check both Ethereum Mainnet and Base Mainnet
@@ -1848,20 +1993,14 @@ export async function requestUSDCApprovalsOnAllChains(
     return results;
   }
 
-  onProgress?.(
-    `Requesting USDC approvals on ${chainsToCheck.length} chain(s)...`,
-    'info'
-  );
+  onProgress?.(`Requesting USDC approvals on ${chainsToCheck.length} chain(s)...`, 'info');
 
   // Request approvals on each chain
   for (const chainId of chainsToCheck) {
     try {
       const usdcAddress = getUSDCAddress(chainId);
       if (!usdcAddress) {
-        onProgress?.(
-          `Skipping chain ${chainId}: USDC address not found`,
-          'info'
-        );
+        onProgress?.(`Skipping chain ${chainId}: USDC address not found`, 'info');
         continue;
       }
 
@@ -1883,7 +2022,7 @@ export async function requestUSDCApprovalsOnAllChains(
           // If public client works, the issue is likely wallet connection
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
-            `Current chain may not match.`
+              `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -1907,9 +2046,7 @@ export async function requestUSDCApprovalsOnAllChains(
         // Try again
         const newChainId = await publicClient.getChainId();
         if (newChainId !== chainId) {
-          throw new Error(
-            `Please switch your wallet to ${getChainName(chainId)} to continue.`
-          );
+          throw new Error(`Please switch your wallet to ${getChainName(chainId)} to continue.`);
         }
       }
 
@@ -1935,20 +2072,16 @@ export async function requestUSDCApprovalsOnAllChains(
       });
 
       // If already approved with a large amount, skip
-      const MAX_UINT256 = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      const MAX_UINT256 = BigInt(
+        '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+      );
       if (currentAllowance >= MAX_UINT256 / BigInt(2)) {
-        onProgress?.(
-          `USDC already approved on ${getChainName(chainId)}`,
-          'info'
-        );
+        onProgress?.(`USDC already approved on ${getChainName(chainId)}`, 'info');
         continue;
       }
 
       // Request approval (max uint256 for unlimited)
-      onProgress?.(
-        `Please sign the approval transaction for ${getChainName(chainId)}...`,
-        'info'
-      );
+      onProgress?.(`Please sign the approval transaction for ${getChainName(chainId)}...`, 'info');
 
       const hash = await walletClient.writeContract({
         account,
@@ -1959,22 +2092,13 @@ export async function requestUSDCApprovalsOnAllChains(
       });
 
       results.set(chainId, hash);
-      onProgress?.(
-        `Waiting for approval confirmation on ${getChainName(chainId)}...`,
-        'info'
-      );
+      onProgress?.(`Waiting for approval confirmation on ${getChainName(chainId)}...`, 'info');
 
       await publicClient.waitForTransactionReceipt({ hash });
-      onProgress?.(
-        `✅ USDC approved on ${getChainName(chainId)}`,
-        'success'
-      );
+      onProgress?.(`✅ USDC approved on ${getChainName(chainId)}`, 'success');
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      onProgress?.(
-        `Failed to approve USDC on chain ${chainId}: ${errorMsg}`,
-        'error'
-      );
+      onProgress?.(`Failed to approve USDC on chain ${chainId}: ${errorMsg}`, 'error');
       // Continue with other chains even if one fails
     }
   }
@@ -2031,21 +2155,12 @@ export async function batchApproveTokens(
 
   // If only one token, don't use multicall
   if (tokens.length === 1 || !useMulticall) {
-    return await batchApproveTokensSequential(
-      escrowAddress,
-      tokens,
-      amounts,
-      chainId,
-      onProgress
-    );
+    return await batchApproveTokensSequential(escrowAddress, tokens, amounts, chainId, onProgress);
   }
 
   // Try multicall first
   try {
-    onProgress?.(
-      `Batching ${tokens.length} approval(s) into a single transaction...`,
-      'info'
-    );
+    onProgress?.(`Batching ${tokens.length} approval(s) into a single transaction...`, 'info');
 
     // Prepare multicall data
     const calls = tokens.map((token, i) => ({
@@ -2069,27 +2184,12 @@ export async function batchApproveTokens(
 
     // Since direct multicall via wallet isn't universally supported,
     // we'll use a sequential approach but optimize it
-    return await batchApproveTokensSequential(
-      escrowAddress,
-      tokens,
-      amounts,
-      chainId,
-      onProgress
-    );
+    return await batchApproveTokensSequential(escrowAddress, tokens, amounts, chainId, onProgress);
   } catch (error) {
     // If multicall fails, fall back to sequential
     console.warn('Multicall failed, falling back to sequential approvals:', error);
-    onProgress?.(
-      'Batch approval failed, approving tokens sequentially...',
-      'info'
-    );
-    return await batchApproveTokensSequential(
-      escrowAddress,
-      tokens,
-      amounts,
-      chainId,
-      onProgress
-    );
+    onProgress?.('Batch approval failed, approving tokens sequentially...', 'info');
+    return await batchApproveTokensSequential(escrowAddress, tokens, amounts, chainId, onProgress);
   }
 }
 
@@ -2129,10 +2229,7 @@ async function batchApproveTokensSequential(
 
   // For multiple tokens: send all transactions first (user signs once per transaction)
   // This allows wallet to potentially batch them if it supports it
-  onProgress?.(
-    `Sending ${tokens.length} approval transaction(s)... Please sign each one.`,
-    'info'
-  );
+  onProgress?.(`Sending ${tokens.length} approval transaction(s)... Please sign each one.`, 'info');
 
   const transactionHashes: string[] = [];
 
@@ -2173,7 +2270,8 @@ async function batchApproveTokensSequential(
 
   if (errors.length > 0) {
     const errorMessages = errors.map(
-      e => `Token ${e.index + 1} (${e.token}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
+      e =>
+        `Token ${e.index + 1} (${e.token}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
     );
     throw new Error(`Failed to send some approval transactions:\n${errorMessages.join('\n')}`);
   }
@@ -2247,10 +2345,7 @@ export async function batchContractCalls(
   const publicClient = getPublicClient(chainId);
   const [account] = await walletClient.getAddresses();
 
-  onProgress?.(
-    `Sending ${calls.length} transaction(s)... Please sign each one.`,
-    'info'
-  );
+  onProgress?.(`Sending ${calls.length} transaction(s)... Please sign each one.`, 'info');
 
   const transactionHashes: string[] = [];
 
@@ -2275,7 +2370,7 @@ export async function batchContractCalls(
   const results = await Promise.allSettled(transactionPromises);
 
   // Collect successful hashes
-  const errors: Array<{ index: number; call: typeof calls[0]; error: unknown }> = [];
+  const errors: Array<{ index: number; call: (typeof calls)[0]; error: unknown }> = [];
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.status === 'fulfilled') {
@@ -2292,16 +2387,14 @@ export async function batchContractCalls(
 
   if (errors.length > 0) {
     const errorMessages = errors.map(
-      e => `Call ${e.index + 1} (${e.call.functionName}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
+      e =>
+        `Call ${e.index + 1} (${e.call.functionName}): ${e.error instanceof Error ? e.error.message : String(e.error)}`
     );
     throw new Error(`Failed to send some transactions:\n${errorMessages.join('\n')}`);
   }
 
   // Wait for all receipts concurrently
-  onProgress?.(
-    `Waiting for ${transactionHashes.length} transaction(s) to confirm...`,
-    'info'
-  );
+  onProgress?.(`Waiting for ${transactionHashes.length} transaction(s) to confirm...`, 'info');
 
   await Promise.all(
     transactionHashes.map(hash =>

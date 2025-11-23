@@ -32,6 +32,7 @@
       <nav>
         <div class="nav-brand">
           <a href="/" aria-label="Heira Home">
+            <img src="/logo.png" alt="Heira Logo" class="logo-img" />
             <h1 class="logo">Heira</h1>
             <span class="beta-badge">BETA</span>
           </a>
@@ -51,7 +52,13 @@
           aria-label="Toggle menu"
           aria-expanded={mobileMenuOpen}
         >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             {#if mobileMenuOpen}
               <path
                 d="M18 6L6 18M6 6L18 18"
@@ -123,6 +130,13 @@
     align-items: center;
     text-decoration: none;
     color: var(--color-text);
+    gap: 0.5rem;
+  }
+
+  .logo-img {
+    height: 2rem;
+    width: auto;
+    display: block;
   }
 
   .logo {
@@ -142,8 +156,8 @@
     background-color: var(--color-primary);
     color: var(--color-btn-primary-text);
     border-radius: var(--radius-sm);
-    margin-left: 0.5rem;
-    vertical-align: super;
+    margin-left: 0.1rem;
+    margin-bottom: 1rem;
     line-height: 1.2;
   }
 

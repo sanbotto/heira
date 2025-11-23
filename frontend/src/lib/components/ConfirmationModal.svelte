@@ -30,8 +30,22 @@
 </script>
 
 {#if isOpen}
-  <div class="modal-backdrop" on:click={handleBackdropClick} on:keydown={handleBackdropKeydown} role="button" aria-label="Close modal" tabindex="0" aria-modal="true">
-    <div class="modal-content" role="dialog" tabindex="-1" aria-labelledby="modal-title" aria-describedby="modal-message">
+  <div
+    class="modal-backdrop"
+    on:click={handleBackdropClick}
+    on:keydown={handleBackdropKeydown}
+    role="button"
+    aria-label="Close modal"
+    tabindex="0"
+  >
+    <div
+      class="modal-content"
+      role="dialog"
+      tabindex="-1"
+      aria-labelledby="modal-title"
+      aria-describedby="modal-message"
+      aria-modal="true"
+    >
       <div class="modal-header">
         <h2 id="modal-title">{title}</h2>
       </div>

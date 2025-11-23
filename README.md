@@ -19,10 +19,10 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 - ✅ Escrow creation UI
 - ✅ Dashboard with countdown timers
 
-### Priority 2 (Planned)
-- Filecoin hosting
+### Priority 2 (Implemented)
+- ✅ Filecoin hosting (see [FILECOIN_DEPLOYMENT.md](./FILECOIN_DEPLOYMENT.md))
+- ✅ Backend API and keeper service (see [backend/README.md](./backend/README.md))
 - World ID authentication
-- Go keeper service
 
 ### Priority 3 (Planned)
 - Coinbase Embedded Wallets
@@ -38,12 +38,16 @@ heira/
 │   ├── InheritanceEscrow.sol
 │   ├── InheritanceEscrowFactory.sol
 │   └── test/
-├── frontend/          # SvelteKit application
+├── frontend/          # SvelteKit application (static site)
 │   └── src/
 │       ├── lib/       # Utilities (wallet, ENS, tokens, prices)
 │       ├── components/
 │       └── routes/
-├── keeper/            # Go service for contract execution (Priority 2)
+├── backend/           # Node.js API and keeper service
+│   ├── src/
+│   │   ├── routes/    # API endpoints
+│   │   └── services/  # Keeper service for escrow monitoring
+│   └── README.md
 └── scripts/           # Deployment scripts
 ```
 
@@ -71,9 +75,21 @@ npx hardhat run scripts/deploy.js --network sepolia
 cd frontend
 npm install
 cp .env.example .env
-# Edit .env with API keys and factory addresses
+# Edit .env with API keys, factory addresses, and backend URL
 npm run dev
 ```
+
+### Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Edit .env with private key and network configuration
+npm run dev
+```
+
+See [backend/README.md](./backend/README.md) for detailed backend setup instructions.
 
 ## Testing & Deployment
 
@@ -85,7 +101,7 @@ See [TESTING.md](./TESTING.md) for detailed instructions on:
 
 ## Environment Variables
 
-See `contracts/.env.example` and `frontend/.env.example` for required environment variables.
+See `contracts/.env.example`, `frontend/.env.example`, and `backend/.env.example` for required environment variables.
 
 ## Development
 
@@ -104,9 +120,10 @@ npm run check
 ### Deployment
 
 1. Deploy factory contract to testnet/mainnet
-2. Update `frontend/.env` with factory address
-3. Build frontend: `cd frontend && npm run build`
-4. Deploy to Filecoin (Priority 2)
+2. Update `frontend/.env` with factory address and `VITE_BACKEND_API_URL`
+3. Deploy backend API (see [backend/README.md](./backend/README.md))
+4. Build frontend: `cd frontend && npm run build`
+5. Deploy to Filecoin: See [FILECOIN_DEPLOYMENT.md](./FILECOIN_DEPLOYMENT.md)
 
 ## License
 
