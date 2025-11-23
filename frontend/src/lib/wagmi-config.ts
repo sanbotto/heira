@@ -27,9 +27,9 @@ export const citreaTestnet = {
       url: 'https://5115.testnet.routescan.io',
     },
   },
-  iconUrl: '/citrea.svg',
+  iconUrl: '/citrea-icon.svg',
   iconBackground: '#f0781b',
-} as const satisfies Chain;
+} as const;
 
 export const supportedChains = [mainnet, base, sepolia, baseSepolia, citreaTestnet] as const;
 export type SupportedChainId = (typeof supportedChains)[number]['id'];
