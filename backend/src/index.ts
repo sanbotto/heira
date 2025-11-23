@@ -32,13 +32,25 @@ app.use("/api/prices", pricesRouter);
 
 // Health check
 app.get("/health", (req, res) => {
-  // Prevent caching of health check responses
+  const now = Date.now();
+  const timestamp = new Date(now).toISOString();
+
+  // Aggressively prevent caching
   res.set({
-    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0, s-maxage=0",
+    "Surrogate-Control": "no-store",
+    "CDN-Cache-Control": "no-store",
     "Pragma": "no-cache",
     "Expires": "0",
+    "ETag": `"health-${now}"`,
+    "Last-Modified": new Date(now).toUTCString(),
+    "X-Timestamp": timestamp,
+    "Vary": "Accept, Accept-Encoding, User-Agent",
+    "X-Accel-Buffering": "no",
+    "X-Content-Type-Options": "nosniff",
   });
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+
+  res.json({ status: "ok", timestamp });
 });
 
 // Keeper status endpoint
