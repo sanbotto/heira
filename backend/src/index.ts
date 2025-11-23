@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { verifyEscrowRouter } from "./routes/verify-escrow.js";
 import { pricesRouter } from "./routes/prices.js";
+import { escrowsRouter } from "./routes/escrows.js";
 import { createKeeperFromEnv } from "./services/keeper.js";
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.use(express.json());
 // Routes
 app.use("/api/verify-escrow", verifyEscrowRouter);
 app.use("/api/prices", pricesRouter);
+app.use("/api/escrows", escrowsRouter);
 
 // Health check
 app.get("/health", (req, res) => {
@@ -56,7 +58,7 @@ app.listen(PORT, () => {
       keeper.start();
     } else {
       console.warn(
-        "⚠️  Keeper service not configured. Set KEEPER_NETWORKS environment variable.",
+        "⚠️  Keeper service not configured. Set FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, and/or FACTORY_ADDRESS_CITREA environment variables along with corresponding RPC URLs.",
       );
     }
   } else {

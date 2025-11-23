@@ -9,6 +9,7 @@
 
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
+  let email: string = ''; // Optional email for inactivity warnings
 
   // Token selection
   let includedTokens: string[] = [];
@@ -116,7 +117,17 @@
     }
 
     creating = true;
-    showToastMessage('Preparing escrow creation...', 'info');
+      showToastMessage('Preparing escrow creation...', 'info');
+
+    // Helper function to get network name from chain ID
+    function getNetworkName(chainId: number): string {
+      if (chainId === mainnet.id) return 'mainnet';
+      if (chainId === sepolia.id) return 'sepolia';
+      if (chainId === 8453) return 'base';
+      if (chainId === 84532) return 'baseSepolia';
+      if (chainId === 5115) return 'citreaTestnet';
+      return `chain-${chainId}`;
+    }
 
     try {
       // Use mainWallet as-is (can be ENS name or address), fallback to connected wallet if empty
@@ -202,6 +213,30 @@
 
       showSuccessToast(`Escrow created successfully at ${escrowAddress}`);
 
+      // Register escrow with keeper service
+      try {
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+        const networkName = getNetworkName($wallet.chainId);
+        
+        await fetch(`${backendUrl}/api/escrows/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            escrowAddress,
+            network: networkName,
+            email: email.trim() || undefined,
+            inactivityPeriod: inactivityPeriodSeconds,
+          }),
+        });
+        
+        console.log('Escrow registered with keeper service');
+      } catch (registerError) {
+        console.warn('Failed to register escrow with keeper:', registerError);
+        // Don't fail the whole flow if registration fails
+      }
+
       // Navigate to the escrow detail page
       await goto(`/escrows/${escrowAddress}`);
     } catch (err) {
@@ -234,6 +269,21 @@
         />
         <p class="form-help">
           After this many days without transactions, the escrow can be executed.
+        </p>
+      </div>
+
+      <!-- Email (Optional) -->
+      <div class="form-group">
+        <label for="email" class="form-label"> Email (Optional) </label>
+        <input
+          id="email"
+          type="email"
+          bind:value={email}
+          placeholder="your@email.com"
+          class="form-input"
+        />
+        <p class="form-help">
+          Receive email notifications when your escrow is approaching its inactivity period (1 week before execution).
         </p>
       </div>
 
@@ -566,13 +616,6 @@
     transform: translateX(-50%);
     border: 6px solid transparent;
     border-top-color: var(--color-background-card);
-  }
-
-  .info-tooltip p {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.875rem;
-    color: var(--color-text);
-    line-height: 1.5;
   }
 
   .btn.btn-secondary:disabled {

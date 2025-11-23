@@ -36,6 +36,15 @@
     showToast = true;
   }
 
+  function getNetworkName(chainId: number): string {
+    if (chainId === mainnet.id) return 'mainnet';
+    if (chainId === sepolia.id) return 'sepolia';
+    if (chainId === 8453) return 'base';
+    if (chainId === 84532) return 'baseSepolia';
+    if (chainId === 5115) return 'citreaTestnet';
+    return `chain-${chainId}`;
+  }
+
   async function loadEscrows() {
     if (!$wallet.address || !$wallet.chainId) {
       escrows = [];
@@ -201,6 +210,29 @@
 
       if (receipt.status === 'success') {
         showToastMessage(`Escrow deactivated successfully!`, 'success');
+        
+        // Unregister escrow from keeper service
+        try {
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          const networkName = getNetworkName($wallet.chainId);
+          
+          await fetch(`${backendUrl}/api/escrows/unregister`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              escrowAddress,
+              network: networkName,
+            }),
+          });
+          
+          console.log('Escrow unregistered from keeper service');
+        } catch (unregisterError) {
+          console.warn('Failed to unregister escrow from keeper:', unregisterError);
+          // Don't fail the whole flow if unregistration fails
+        }
+        
         // Reload escrows to reflect the change
         await loadEscrows();
       } else {
