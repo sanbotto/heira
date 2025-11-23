@@ -41,6 +41,13 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     Beneficiary[] public beneficiaries;
     uint256 public constant BASIS_POINTS = 1e4;
 
+    // Chain IDs
+    uint256 private constant CITREA_TESTNET_CHAIN_ID = 5115;
+
+    // ASCII character constants for hex parsing
+    uint8 private constant ASCII_ZERO_OFFSET = 0x30;
+    uint8 private constant ASCII_X_LOWERCASE = 0x78;
+
     // Coinbase Trade integration
     ICoinbaseTrade public coinbaseTrade;
 
@@ -218,7 +225,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             return address(0);
         }
 
-        if (addressBytes[0] != 0x30 || addressBytes[1] != 0x78) {
+        if (addressBytes[0] != ASCII_ZERO_OFFSET || addressBytes[1] != ASCII_X_LOWERCASE) {
             // "0x"
             return address(0);
         }
@@ -229,9 +236,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint8 char = uint8(addressBytes[i]);
             uint8 value;
 
-            if (char >= 0x30 && char <= 0x39) {
+            if (char >= ASCII_ZERO_OFFSET && char <= 0x39) {
                 // '0'-'9'
-                value = char - 0x30;
+                value = char - ASCII_ZERO_OFFSET;
             } else if (char >= 0x41 && char <= 0x46) {
                 // 'A'-'F'
                 value = char - 0x37;
@@ -408,7 +415,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (block.chainid == 84532) {
             // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
             return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
-        } else if (block.chainid == 5115) {
+        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
             // Citrea Testnet
             return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
         }
@@ -433,7 +440,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (chainId == 84532) {
             // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
             return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
-        } else if (chainId == 5115) {
+        } else if (chainId == CITREA_TESTNET_CHAIN_ID) {
             // Citrea Testnet
             return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
         }
@@ -457,7 +464,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (block.chainid == 84532) {
             // Base Sepolia
             return 0x4200000000000000000000000000000000000006;
-        } else if (block.chainid == 5115) {
+        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
             // Citrea Testnet - TODO: Replace with actual WETH address when found
             return address(0);
         }
@@ -482,7 +489,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (chainId == 84532) {
             // Base Sepolia
             return 0x4200000000000000000000000000000000000006;
-        } else if (chainId == 5115) {
+        } else if (chainId == CITREA_TESTNET_CHAIN_ID) {
             // Citrea Testnet - TODO: Replace with actual WETH address when found
             return address(0);
         }
@@ -509,10 +516,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             chains = new uint256[](2);
             chains[0] = 11155111; // Sepolia
             chains[1] = 84532; // Base Sepolia
-        } else if (block.chainid == 5115) {
+        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
             // Citrea Testnet - only check itself
             chains = new uint256[](1);
-            chains[0] = 5115; // Citrea Testnet
+            chains[0] = CITREA_TESTNET_CHAIN_ID; // Citrea Testnet
         } else {
             // Unknown chain - return empty array
             chains = new uint256[](0);
