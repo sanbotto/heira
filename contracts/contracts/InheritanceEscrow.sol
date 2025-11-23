@@ -678,25 +678,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 usdcBalanceInMainWallet = IERC20(usdcAddress).balanceOf(mainWallet);
 
             if (usdcBalanceInMainWallet > 0) {
-                // Calculate total USDC needed for beneficiaries who want USDC directly (not swapped)
-                uint256 totalUSDCNeeded = 0;
-                for (uint256 i = 0; i < beneficiaries.length; i++) {
-                    if (
-                        beneficiaries[i].chainId == block.chainid &&
-                        beneficiaries[i].tokenAddress == usdcAddress &&
-                        !beneficiaries[i].shouldSwap
-                    ) {
-                        // Beneficiary wants USDC directly - calculate their portion
-                        totalUSDCNeeded +=
-                            (usdcBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
-                    }
-                }
-
-                // Pull USDC from mainWallet using spending cap
-                if (totalUSDCNeeded > 0) {
-                    _pullTokensFromMainWallet(usdcAddress, totalUSDCNeeded);
-                }
+                // Pull full USDC balance from mainWallet (respects allowance limits)
+                // Distribution will be handled proportionally by _processTokenForBeneficiaries
+                _pullTokensFromMainWallet(usdcAddress, usdcBalanceInMainWallet);
             }
         }
 
@@ -705,25 +689,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 wcbtcBalanceInMainWallet = IERC20(wcbtcAddress).balanceOf(mainWallet);
 
             if (wcbtcBalanceInMainWallet > 0) {
-                // Calculate total WCBTC needed for beneficiaries who want WCBTC directly (not swapped)
-                uint256 totalWCBTCNeeded = 0;
-                for (uint256 i = 0; i < beneficiaries.length; i++) {
-                    if (
-                        beneficiaries[i].chainId == block.chainid &&
-                        beneficiaries[i].tokenAddress == wcbtcAddress &&
-                        !beneficiaries[i].shouldSwap
-                    ) {
-                        // Beneficiary wants WCBTC directly - calculate their portion
-                        totalWCBTCNeeded +=
-                            (wcbtcBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
-                    }
-                }
-
-                // Pull WCBTC from mainWallet using spending cap
-                if (totalWCBTCNeeded > 0) {
-                    _pullTokensFromMainWallet(wcbtcAddress, totalWCBTCNeeded);
-                }
+                // Pull full WCBTC balance from mainWallet (respects allowance limits)
+                // Distribution will be handled proportionally by _processTokenForBeneficiaries
+                _pullTokensFromMainWallet(wcbtcAddress, wcbtcBalanceInMainWallet);
             }
         }
 
@@ -732,25 +700,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 wethBalanceInMainWallet = IERC20(wethAddress).balanceOf(mainWallet);
 
             if (wethBalanceInMainWallet > 0) {
-                // Calculate total WETH needed for beneficiaries who want WETH directly (not swapped)
-                uint256 totalWETHNeeded = 0;
-                for (uint256 i = 0; i < beneficiaries.length; i++) {
-                    if (
-                        beneficiaries[i].chainId == block.chainid &&
-                        beneficiaries[i].tokenAddress == wethAddress &&
-                        !beneficiaries[i].shouldSwap
-                    ) {
-                        // Beneficiary wants WETH directly - calculate their portion
-                        totalWETHNeeded +=
-                            (wethBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
-                    }
-                }
-
-                // Pull WETH from mainWallet using spending cap
-                if (totalWETHNeeded > 0) {
-                    _pullTokensFromMainWallet(wethAddress, totalWETHNeeded);
-                }
+                // Pull full WETH balance from mainWallet (respects allowance limits)
+                // Distribution will be handled proportionally by _processTokenForBeneficiaries
+                _pullTokensFromMainWallet(wethAddress, wethBalanceInMainWallet);
             }
         }
 
