@@ -39,7 +39,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
 
     // Beneficiaries
     Beneficiary[] public beneficiaries;
-    uint256 public constant BASIS_POINTS = 10000;
+    uint256 public constant BASIS_POINTS = 1e4;
 
     // Coinbase Trade integration
     ICoinbaseTrade public coinbaseTrade;
