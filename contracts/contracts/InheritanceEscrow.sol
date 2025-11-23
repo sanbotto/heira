@@ -145,6 +145,13 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         require(status == Status.Active, "Contract is inactive");
         require(beneficiaries.length < MAX_BENEFICIARIES, "Maximum beneficiaries reached");
 
+        // Check that adding this beneficiary won't exceed 100% for this token/chain
+        uint256 currentSum = _getTokenPercentageSum(_tokenAddress, _chainId);
+        require(
+            currentSum + _percentage <= BASIS_POINTS,
+            "Total percentage for this token/chain would exceed 100%"
+        );
+
         if (_shouldSwap) {
             require(_targetToken != address(0), "Invalid target token");
         }
@@ -206,6 +213,13 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             recipientAddress = _parseAddress(_recipient);
             require(recipientAddress != address(0), "Invalid address format");
         }
+
+        // Check that adding this beneficiary won't exceed 100% for this token/chain
+        uint256 currentSum = _getTokenPercentageSum(_tokenAddress, _chainId);
+        require(
+            currentSum + _percentage <= BASIS_POINTS,
+            "Total percentage for this token/chain would exceed 100%"
+        );
 
         beneficiaries.push(
             Beneficiary({
@@ -309,6 +323,24 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             if (_shouldSwaps[i]) {
                 require(_targetTokens[i] != address(0), "Invalid target token");
             }
+
+            // Calculate cumulative sum for this token/chain in the batch so far
+            uint256 batchSum = 0;
+            for (uint256 j = 0; j < i; j++) {
+                if (
+                    _tokenAddresses[j] == _tokenAddresses[i] &&
+                    _chainIds[j] == _chainIds[i]
+                ) {
+                    batchSum += _percentages[j];
+                }
+            }
+
+            // Check that adding this beneficiary won't exceed 100% for this token/chain
+            uint256 currentSum = _getTokenPercentageSum(_tokenAddresses[i], _chainIds[i]);
+            require(
+                currentSum + batchSum + _percentages[i] <= BASIS_POINTS,
+                "Total percentage for this token/chain would exceed 100%"
+            );
 
             beneficiaries.push(
                 Beneficiary({
@@ -627,6 +659,28 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         balance = wethContract.balanceOf(mainWallet);
 
         return (allowance, balance);
+    }
+
+    /**
+     * @notice Calculate the sum of percentages for beneficiaries wanting a specific token
+     * @param tokenAddress Token address to check (zero address for native ETH)
+     * @param chainId Chain ID to check
+     * @return Sum of percentages in basis points
+     */
+    function _getTokenPercentageSum(
+        address tokenAddress,
+        uint256 chainId
+    ) internal view returns (uint256) {
+        uint256 sum = 0;
+        for (uint256 i = 0; i < beneficiaries.length; i++) {
+            if (
+                beneficiaries[i].tokenAddress == tokenAddress &&
+                beneficiaries[i].chainId == chainId
+            ) {
+                sum += beneficiaries[i].percentage;
+            }
+        }
+        return sum;
     }
 
     /**
