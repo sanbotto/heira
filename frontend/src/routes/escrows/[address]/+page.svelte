@@ -86,7 +86,7 @@
 
     loadingEmail = true;
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
 
       const response = await fetch(
@@ -258,7 +258,7 @@
     showToastMessage('Enabling email notifications...', 'info');
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
 
       // Get inactivity period from the escrow contract
@@ -326,7 +326,7 @@
     showToastMessage('Disabling email notifications...', 'info');
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+      const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
 
       // Get inactivity period from the escrow contract
@@ -407,7 +407,7 @@
 
         // Unregister escrow from keeper service
         try {
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
           const networkName = getNetworkName($wallet.chainId);
 
           await fetch(`${backendUrl}/api/escrows/unregister`, {

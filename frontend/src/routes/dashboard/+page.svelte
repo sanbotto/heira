@@ -213,7 +213,7 @@
 
         // Unregister escrow from keeper service
         try {
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+          const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
           const networkName = getNetworkName($wallet.chainId);
 
           await fetch(`${backendUrl}/api/escrows/unregister`, {
