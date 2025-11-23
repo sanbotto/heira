@@ -35,12 +35,59 @@ async function loadEscrows(): Promise<EscrowMetadata[]> {
   try {
     await ensureDataDir();
     const data = await fs.readFile(ESCROWS_FILE, "utf-8");
-    return JSON.parse(data);
+
+    // Handle empty file or whitespace-only content
+    const trimmedData = data.trim();
+    if (!trimmedData) {
+      return [];
+    }
+
+    const parsed = JSON.parse(trimmedData);
+
+    // Ensure parsed data is an array
+    if (!Array.isArray(parsed)) {
+      console.warn(
+        `[${new Date().toISOString()}] Escrows file does not contain an array, initializing empty array. Found type: ${typeof parsed}`,
+      );
+      // Try to backup the invalid file
+      try {
+        const backupPath = `${ESCROWS_FILE}.backup.${Date.now()}`;
+        await fs.copyFile(ESCROWS_FILE, backupPath);
+        console.log(`Backed up invalid file to ${backupPath}`);
+      } catch (backupError) {
+        // Ignore backup errors
+      }
+      // Initialize with empty array
+      await saveEscrows([]);
+      return [];
+    }
+
+    return parsed;
   } catch (error: any) {
     if (error.code === "ENOENT") {
       // File doesn't exist yet, return empty array
       return [];
     }
+
+    // Handle JSON parsing errors (empty file, invalid JSON, etc.)
+    if (error instanceof SyntaxError || error.name === "SyntaxError") {
+      console.warn(
+        `[${new Date().toISOString()}] Invalid JSON in escrows file, initializing empty array:`,
+        error.message,
+      );
+      // Try to backup the corrupted file
+      try {
+        const backupPath = `${ESCROWS_FILE}.backup.${Date.now()}`;
+        await fs.copyFile(ESCROWS_FILE, backupPath);
+        console.log(`Backed up corrupted file to ${backupPath}`);
+      } catch (backupError) {
+        // Ignore backup errors
+      }
+      // Initialize with empty array
+      await saveEscrows([]);
+      return [];
+    }
+
     throw error;
   }
 }
@@ -63,9 +110,7 @@ function getEscrowKey(escrowAddress: string, network: string): string {
 /**
  * Add an escrow to storage
  */
-export async function addEscrow(
-  metadata: EscrowMetadata,
-): Promise<void> {
+export async function addEscrow(metadata: EscrowMetadata): Promise<void> {
   const escrows = await loadEscrows();
   const key = getEscrowKey(metadata.escrowAddress, metadata.network);
 
@@ -142,7 +187,10 @@ export async function getEscrow(
   const escrows = await loadEscrows();
   const key = getEscrowKey(escrowAddress, network);
 
-  return escrows.find((e) => getEscrowKey(e.escrowAddress, e.network) === key) || null;
+  return (
+    escrows.find((e) => getEscrowKey(e.escrowAddress, e.network) === key) ||
+    null
+  );
 }
 
 /**
