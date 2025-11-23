@@ -1,29 +1,36 @@
 <script lang="ts">
-  import { theme } from '$lib/stores/theme';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { browser } from '$app/environment';
 
-  function getEffectiveTheme(currentTheme: string) {
-    if (!browser) return 'light';
-    if (currentTheme === 'auto') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return currentTheme;
+  function getIsDark(): boolean {
+    if (!browser) return false;
+    return document.documentElement.classList.contains('dark') || 
+           document.documentElement.getAttribute('data-theme') === 'dark';
   }
 
-  $: isDark = getEffectiveTheme($theme) === 'dark';
+  // Initialize to false to match server render (prevents hydration mismatch)
+  let isDark = false;
 
-  onMount(() => {
-    // Listen for system theme changes when in auto mode
-    if (browser) {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => {
-        // Trigger reactivity by accessing $theme
-        isDark = getEffectiveTheme($theme) === 'dark';
-      };
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
+  onMount(async () => {
+    if (!browser) return;
+    
+    await tick();
+    isDark = getIsDark();
+    
+    // Watch for DOM changes (when theme is applied)
+    const observer = new MutationObserver(() => {
+      const current = getIsDark();
+      if (current !== isDark) {
+        isDark = current;
+      }
+    });
+    
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'data-theme']
+    });
+    
+    return () => observer.disconnect();
   });
 </script>
 
