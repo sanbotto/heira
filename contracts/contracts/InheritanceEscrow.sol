@@ -36,19 +36,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     uint256 public inactivityPeriod; // Time period in seconds (e.g., 3 months)
     uint256 public lastActivityTimestamp; // Last known activity timestamp
     Status public status; // Contract status (Active/Inactive)
-    address public keeper; // Authorized keeper address for updating activity
 
     // Beneficiaries
     Beneficiary[] public beneficiaries;
-    uint256 public constant BASIS_POINTS = 1e4;
-    uint256 public constant MAX_BENEFICIARIES = 5;
-
-    // Chain IDs
-    uint256 private constant CITREA_TESTNET_CHAIN_ID = 5115;
-
-    // ASCII character constants for hex parsing
-    uint8 private constant ASCII_ZERO_OFFSET = 0x30;
-    uint8 private constant ASCII_X_LOWERCASE = 0x78;
+    uint256 public constant BASIS_POINTS = 10000;
 
     // Coinbase Trade integration
     ICoinbaseTrade public coinbaseTrade;
@@ -69,7 +60,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     );
     event ActivityUpdated(uint256 newTimestamp);
     event StatusChanged(Status newStatus);
-    event KeeperUpdated(address indexed newKeeper);
     event ExecutionTriggered(address indexed executor);
     event FundsTransferred(
         address indexed token,
@@ -89,7 +79,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param _mainWallet The wallet address to monitor for activity
      * @param _inactivityPeriod Period of inactivity in seconds before execution
      * @param _owner The owner of the escrow contract
-     * @dev Sets keeper to the authorized keeper service address
      */
     constructor(address _mainWallet, uint256 _inactivityPeriod, address _owner) Ownable(_owner) {
         require(_mainWallet != address(0), "Invalid main wallet");
@@ -100,7 +89,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         inactivityPeriod = _inactivityPeriod;
         lastActivityTimestamp = block.timestamp;
         status = Status.Active;
-        keeper = 0xC9e465e5346773c3Cb69e167B5733306FE7db75f; // Authorized keeper service address
 
         emit EscrowCreated(_owner, _mainWallet, _inactivityPeriod);
     }
@@ -112,15 +100,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     function setCoinbaseTrade(address _coinbaseTrade) external onlyOwner {
         require(_coinbaseTrade != address(0), "Invalid address");
         coinbaseTrade = ICoinbaseTrade(_coinbaseTrade);
-    }
-
-    /**
-     * @notice Set the keeper address authorized to update activity
-     * @param _keeper Address of the authorized keeper (zero address to remove keeper)
-     */
-    function setKeeper(address _keeper) external onlyOwner {
-        keeper = _keeper;
-        emit KeeperUpdated(_keeper);
     }
 
     /**
@@ -143,14 +122,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         require(_recipient != address(0), "Invalid recipient");
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
-        require(beneficiaries.length < MAX_BENEFICIARIES, "Maximum beneficiaries reached");
-
-        // Check that adding this beneficiary won't exceed 100% for this token/chain
-        uint256 currentSum = _getTokenPercentageSum(_tokenAddress, _chainId);
-        require(
-            currentSum + _percentage <= BASIS_POINTS,
-            "Total percentage for this token/chain would exceed 100%"
-        );
 
         if (_shouldSwap) {
             require(_targetToken != address(0), "Invalid target token");
@@ -196,7 +167,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
-        require(beneficiaries.length < MAX_BENEFICIARIES, "Maximum beneficiaries reached");
 
         if (_shouldSwap) {
             require(_targetToken != address(0), "Invalid target token");
@@ -213,13 +183,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             recipientAddress = _parseAddress(_recipient);
             require(recipientAddress != address(0), "Invalid address format");
         }
-
-        // Check that adding this beneficiary won't exceed 100% for this token/chain
-        uint256 currentSum = _getTokenPercentageSum(_tokenAddress, _chainId);
-        require(
-            currentSum + _percentage <= BASIS_POINTS,
-            "Total percentage for this token/chain would exceed 100%"
-        );
 
         beneficiaries.push(
             Beneficiary({
@@ -255,7 +218,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             return address(0);
         }
 
-        if (addressBytes[0] != ASCII_ZERO_OFFSET || addressBytes[1] != ASCII_X_LOWERCASE) {
+        if (addressBytes[0] != 0x30 || addressBytes[1] != 0x78) {
             // "0x"
             return address(0);
         }
@@ -266,9 +229,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint8 char = uint8(addressBytes[i]);
             uint8 value;
 
-            if (char >= ASCII_ZERO_OFFSET && char <= 0x39) {
+            if (char >= 0x30 && char <= 0x39) {
                 // '0'-'9'
-                value = char - ASCII_ZERO_OFFSET;
+                value = char - 0x30;
             } else if (char >= 0x41 && char <= 0x46) {
                 // 'A'-'F'
                 value = char - 0x37;
@@ -311,10 +274,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             "Array length mismatch"
         );
         require(status == Status.Active, "Contract is inactive");
-        require(
-            beneficiaries.length + _recipients.length <= MAX_BENEFICIARIES,
-            "Maximum beneficiaries exceeded"
-        );
 
         for (uint256 i = 0; i < _recipients.length; i++) {
             require(_recipients[i] != address(0), "Invalid recipient");
@@ -323,24 +282,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             if (_shouldSwaps[i]) {
                 require(_targetTokens[i] != address(0), "Invalid target token");
             }
-
-            // Calculate cumulative sum for this token/chain in the batch so far
-            uint256 batchSum = 0;
-            for (uint256 j = 0; j < i; j++) {
-                if (
-                    _tokenAddresses[j] == _tokenAddresses[i] &&
-                    _chainIds[j] == _chainIds[i]
-                ) {
-                    batchSum += _percentages[j];
-                }
-            }
-
-            // Check that adding this beneficiary won't exceed 100% for this token/chain
-            uint256 currentSum = _getTokenPercentageSum(_tokenAddresses[i], _chainIds[i]);
-            require(
-                currentSum + batchSum + _percentages[i] <= BASIS_POINTS,
-                "Total percentage for this token/chain would exceed 100%"
-            );
 
             beneficiaries.push(
                 Beneficiary({
@@ -365,29 +306,12 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Update the last activity timestamp (called by owner or authorized keeper)
+     * @notice Update the last activity timestamp (called by keeper or oracle)
      * @param _timestamp New activity timestamp
-     * @dev Only owner or authorized keeper can update activity.
-     *      Prevents updating if execution is already possible (unless called by owner)
-     *      to prevent indefinite postponement of execution.
      */
     function updateActivity(uint256 _timestamp) external {
-        require(
-            msg.sender == owner() || msg.sender == keeper,
-            "Only owner or keeper can update activity"
-        );
         require(_timestamp >= lastActivityTimestamp, "Timestamp must be newer");
         require(_timestamp <= block.timestamp, "Timestamp cannot be in future");
-
-        // Prevent keeper from updating if execution is already possible
-        // Owner can always update (they own the escrow)
-        if (msg.sender != owner()) {
-            uint256 timeSinceActivity = block.timestamp - lastActivityTimestamp;
-            require(
-                timeSinceActivity < inactivityPeriod,
-                "Cannot update activity when execution is already possible"
-            );
-        }
 
         lastActivityTimestamp = _timestamp;
         emit ActivityUpdated(_timestamp);
@@ -484,7 +408,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (block.chainid == 84532) {
             // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
             return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
-        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
+        } else if (block.chainid == 5115) {
             // Citrea Testnet
             return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
         }
@@ -509,7 +433,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (chainId == 84532) {
             // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
             return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
-        } else if (chainId == CITREA_TESTNET_CHAIN_ID) {
+        } else if (chainId == 5115) {
             // Citrea Testnet
             return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
         }
@@ -533,7 +457,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (block.chainid == 84532) {
             // Base Sepolia
             return 0x4200000000000000000000000000000000000006;
-        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
+        } else if (block.chainid == 5115) {
             // Citrea Testnet - TODO: Replace with actual WETH address when found
             return address(0);
         }
@@ -558,7 +482,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         } else if (chainId == 84532) {
             // Base Sepolia
             return 0x4200000000000000000000000000000000000006;
-        } else if (chainId == CITREA_TESTNET_CHAIN_ID) {
+        } else if (chainId == 5115) {
             // Citrea Testnet - TODO: Replace with actual WETH address when found
             return address(0);
         }
@@ -585,10 +509,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             chains = new uint256[](2);
             chains[0] = 11155111; // Sepolia
             chains[1] = 84532; // Base Sepolia
-        } else if (block.chainid == CITREA_TESTNET_CHAIN_ID) {
+        } else if (block.chainid == 5115) {
             // Citrea Testnet - only check itself
             chains = new uint256[](1);
-            chains[0] = CITREA_TESTNET_CHAIN_ID; // Citrea Testnet
+            chains[0] = 5115; // Citrea Testnet
         } else {
             // Unknown chain - return empty array
             chains = new uint256[](0);
@@ -662,28 +586,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Calculate the sum of percentages for beneficiaries wanting a specific token
-     * @param tokenAddress Token address to check (zero address for native ETH)
-     * @param chainId Chain ID to check
-     * @return Sum of percentages in basis points
-     */
-    function _getTokenPercentageSum(
-        address tokenAddress,
-        uint256 chainId
-    ) internal view returns (uint256) {
-        uint256 sum = 0;
-        for (uint256 i = 0; i < beneficiaries.length; i++) {
-            if (
-                beneficiaries[i].tokenAddress == tokenAddress &&
-                beneficiaries[i].chainId == chainId
-            ) {
-                sum += beneficiaries[i].percentage;
-            }
-        }
-        return sum;
-    }
-
-    /**
      * @notice Pull tokens from mainWallet using spending cap allowance
      * @param token Token address to pull
      * @param amount Amount to pull
@@ -732,9 +634,25 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 usdcBalanceInMainWallet = IERC20(usdcAddress).balanceOf(mainWallet);
 
             if (usdcBalanceInMainWallet > 0) {
-                // Pull full USDC balance from mainWallet (respects allowance limits)
-                // Distribution will be handled proportionally by _processTokenForBeneficiaries
-                _pullTokensFromMainWallet(usdcAddress, usdcBalanceInMainWallet);
+                // Calculate total USDC needed for beneficiaries who want USDC directly (not swapped)
+                uint256 totalUSDCNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == usdcAddress &&
+                        !beneficiaries[i].shouldSwap
+                    ) {
+                        // Beneficiary wants USDC directly - calculate their portion
+                        totalUSDCNeeded +=
+                            (usdcBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
+                    }
+                }
+
+                // Pull USDC from mainWallet using spending cap
+                if (totalUSDCNeeded > 0) {
+                    _pullTokensFromMainWallet(usdcAddress, totalUSDCNeeded);
+                }
             }
         }
 
@@ -743,9 +661,25 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 wcbtcBalanceInMainWallet = IERC20(wcbtcAddress).balanceOf(mainWallet);
 
             if (wcbtcBalanceInMainWallet > 0) {
-                // Pull full WCBTC balance from mainWallet (respects allowance limits)
-                // Distribution will be handled proportionally by _processTokenForBeneficiaries
-                _pullTokensFromMainWallet(wcbtcAddress, wcbtcBalanceInMainWallet);
+                // Calculate total WCBTC needed for beneficiaries who want WCBTC directly (not swapped)
+                uint256 totalWCBTCNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == wcbtcAddress &&
+                        !beneficiaries[i].shouldSwap
+                    ) {
+                        // Beneficiary wants WCBTC directly - calculate their portion
+                        totalWCBTCNeeded +=
+                            (wcbtcBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
+                    }
+                }
+
+                // Pull WCBTC from mainWallet using spending cap
+                if (totalWCBTCNeeded > 0) {
+                    _pullTokensFromMainWallet(wcbtcAddress, totalWCBTCNeeded);
+                }
             }
         }
 
@@ -754,9 +688,25 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 wethBalanceInMainWallet = IERC20(wethAddress).balanceOf(mainWallet);
 
             if (wethBalanceInMainWallet > 0) {
-                // Pull full WETH balance from mainWallet (respects allowance limits)
-                // Distribution will be handled proportionally by _processTokenForBeneficiaries
-                _pullTokensFromMainWallet(wethAddress, wethBalanceInMainWallet);
+                // Calculate total WETH needed for beneficiaries who want WETH directly (not swapped)
+                uint256 totalWETHNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == wethAddress &&
+                        !beneficiaries[i].shouldSwap
+                    ) {
+                        // Beneficiary wants WETH directly - calculate their portion
+                        totalWETHNeeded +=
+                            (wethBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
+                    }
+                }
+
+                // Pull WETH from mainWallet using spending cap
+                if (totalWETHNeeded > 0) {
+                    _pullTokensFromMainWallet(wethAddress, totalWETHNeeded);
+                }
             }
         }
 
@@ -883,8 +833,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param tokenAddress Token to distribute (zero address for native ETH)
      * @param recipient Beneficiary address
      * @param amount Amount to distribute
-     * @dev Uses call() for ETH distributions to forward all available gas,
-     *      preventing failures with contracts that require more than 2300 gas
      */
     function _distributeToBeneficiary(
         address tokenAddress,
@@ -896,10 +844,8 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         }
 
         if (tokenAddress == address(0)) {
-            // Native ETH distribution using call() to forward all available gas
-            // This prevents failures with contracts that need more than 2300 gas
-            (bool success, ) = payable(recipient).call{value: amount}("");
-            require(success, "ETH transfer failed");
+            // Native ETH distribution
+            payable(recipient).transfer(amount);
         } else {
             // ERC20 distribution
             IERC20 token = IERC20(tokenAddress);
