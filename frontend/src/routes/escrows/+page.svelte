@@ -19,11 +19,17 @@
     }
 
     try {
-      const factoryAddress = (
-        $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
-          ? import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM
-          : import.meta.env.VITE_FACTORY_ADDRESS_BASE
-      ) as Address;
+      // Get factory address based on current chain
+      // Sepolia uses the same env var as Ethereum mainnet
+      // Citrea Testnet uses its own env var
+      let factoryAddress: Address;
+      if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
+      } else if ($wallet.chainId === 5115) {
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;
+      } else {
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE as Address;
+      }
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
         return;

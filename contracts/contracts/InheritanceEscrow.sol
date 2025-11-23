@@ -392,10 +392,109 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Get WCBTC address for current chain
+     * @return WCBTC token address
+     */
+    function _getWCBTCAddress() internal view returns (address) {
+        if (block.chainid == 1) {
+            // Ethereum Mainnet - WBTC (using WBTC as WCBTC equivalent)
+            return 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+        } else if (block.chainid == 11155111) {
+            // Sepolia - WBTC (using WBTC as WCBTC equivalent)
+            return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
+        } else if (block.chainid == 8453) {
+            // Base Mainnet - WBTC (using WBTC as WCBTC equivalent)
+            return 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+        } else if (block.chainid == 84532) {
+            // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
+            return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
+        } else if (block.chainid == 5115) {
+            // Citrea Testnet
+            return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
+        }
+        return address(0);
+    }
+
+    /**
+     * @notice Get WCBTC address for a specific chain ID
+     * @param chainId Chain ID to get WCBTC address for
+     * @return WCBTC token address for the specified chain
+     */
+    function getWCBTCAddressForChain(uint256 chainId) external pure returns (address) {
+        if (chainId == 1) {
+            // Ethereum Mainnet - WBTC (using WBTC as WCBTC equivalent)
+            return 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+        } else if (chainId == 11155111) {
+            // Sepolia - WBTC (using WBTC as WCBTC equivalent)
+            return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
+        } else if (chainId == 8453) {
+            // Base Mainnet - WBTC (using WBTC as WCBTC equivalent)
+            return 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
+        } else if (chainId == 84532) {
+            // Base Sepolia - WBTC (using WBTC as WCBTC equivalent)
+            return 0x29F2D40B0605204364c54e5c5C29723839eEF55b;
+        } else if (chainId == 5115) {
+            // Citrea Testnet
+            return 0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93;
+        }
+        return address(0);
+    }
+
+    /**
+     * @notice Get WETH address for current chain
+     * @return WETH token address
+     */
+    function _getWETHAddress() internal view returns (address) {
+        if (block.chainid == 1) {
+            // Ethereum Mainnet
+            return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        } else if (block.chainid == 11155111) {
+            // Sepolia
+            return 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+        } else if (block.chainid == 8453) {
+            // Base Mainnet
+            return 0x4200000000000000000000000000000000000006;
+        } else if (block.chainid == 84532) {
+            // Base Sepolia
+            return 0x4200000000000000000000000000000000000006;
+        } else if (block.chainid == 5115) {
+            // Citrea Testnet - TODO: Replace with actual WETH address when found
+            return address(0);
+        }
+        return address(0);
+    }
+
+    /**
+     * @notice Get WETH address for a specific chain ID
+     * @param chainId Chain ID to get WETH address for
+     * @return WETH token address for the specified chain
+     */
+    function getWETHAddressForChain(uint256 chainId) external pure returns (address) {
+        if (chainId == 1) {
+            // Ethereum Mainnet
+            return 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        } else if (chainId == 11155111) {
+            // Sepolia
+            return 0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14;
+        } else if (chainId == 8453) {
+            // Base Mainnet
+            return 0x4200000000000000000000000000000000000006;
+        } else if (chainId == 84532) {
+            // Base Sepolia
+            return 0x4200000000000000000000000000000000000006;
+        } else if (chainId == 5115) {
+            // Citrea Testnet - TODO: Replace with actual WETH address when found
+            return address(0);
+        }
+        return address(0);
+    }
+
+    /**
      * @notice Get the chain IDs that should be checked for approvals based on deployment chain
      * @return Array of chain IDs that should be checked
      * @dev Returns both testnet chains (Sepolia and Base Sepolia) if deployed on testnet,
-     *      or both mainnet chains (Ethereum Mainnet and Base Mainnet) if deployed on mainnet
+     *      or both mainnet chains (Ethereum Mainnet and Base Mainnet) if deployed on mainnet,
+     *      or only Citrea Testnet if deployed on Citrea Testnet
      */
     function getChainsToCheck() external view returns (uint256[] memory) {
         uint256[] memory chains;
@@ -410,6 +509,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             chains = new uint256[](2);
             chains[0] = 11155111; // Sepolia
             chains[1] = 84532; // Base Sepolia
+        } else if (block.chainid == 5115) {
+            // Citrea Testnet - only check itself
+            chains = new uint256[](1);
+            chains[0] = 5115; // Citrea Testnet
         } else {
             // Unknown chain - return empty array
             chains = new uint256[](0);
@@ -431,6 +534,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      *      When deployed to:
      *      - Eth Sepolia (11155111) or Base Sepolia (84532): Should check approvals on BOTH Sepolia AND Base Sepolia
      *      - Eth Mainnet (1) or Base Mainnet (8453): Should check approvals on BOTH Mainnet AND Base Mainnet
+     *      - Citrea Testnet (5115): Should check approvals only on Citrea Testnet
      */
     function checkUSDCApproval() external view returns (uint256 allowance, uint256 balance) {
         address usdcAddress = _getUSDCAddress();
@@ -441,6 +545,42 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         IERC20 usdcContract = IERC20(usdcAddress);
         allowance = usdcContract.allowance(mainWallet, address(this));
         balance = usdcContract.balanceOf(mainWallet);
+
+        return (allowance, balance);
+    }
+
+    /**
+     * @notice Check WCBTC allowance for mainWallet on current chain
+     * @return allowance Current WCBTC allowance from mainWallet to this contract
+     * @return balance Current WCBTC balance of mainWallet
+     */
+    function checkWCBTCApproval() external view returns (uint256 allowance, uint256 balance) {
+        address wcbtcAddress = _getWCBTCAddress();
+        if (wcbtcAddress == address(0)) {
+            return (0, 0);
+        }
+
+        IERC20 wcbtcContract = IERC20(wcbtcAddress);
+        allowance = wcbtcContract.allowance(mainWallet, address(this));
+        balance = wcbtcContract.balanceOf(mainWallet);
+
+        return (allowance, balance);
+    }
+
+    /**
+     * @notice Check WETH allowance for mainWallet on current chain
+     * @return allowance Current WETH allowance from mainWallet to this contract
+     * @return balance Current WETH balance of mainWallet
+     */
+    function checkWETHApproval() external view returns (uint256 allowance, uint256 balance) {
+        address wethAddress = _getWETHAddress();
+        if (wethAddress == address(0)) {
+            return (0, 0);
+        }
+
+        IERC20 wethContract = IERC20(wethAddress);
+        allowance = wethContract.allowance(mainWallet, address(this));
+        balance = wethContract.balanceOf(mainWallet);
 
         return (allowance, balance);
     }
@@ -483,9 +623,11 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
 
         emit ExecutionTriggered(msg.sender);
 
-        // Detect funds: ETH in escrow (user must send ETH to escrow) and USDC in mainWallet
+        // Detect funds: ETH in escrow (user must send ETH to escrow) and tokens in mainWallet
         uint256 ethBalance = address(this).balance;
         address usdcAddress = _getUSDCAddress();
+        address wcbtcAddress = _getWCBTCAddress();
+        address wethAddress = _getWETHAddress();
 
         // Pull USDC from mainWallet for beneficiaries who want USDC directly
         if (usdcAddress != address(0)) {
@@ -514,6 +656,60 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             }
         }
 
+        // Pull WCBTC from mainWallet for beneficiaries who want WCBTC directly
+        if (wcbtcAddress != address(0)) {
+            uint256 wcbtcBalanceInMainWallet = IERC20(wcbtcAddress).balanceOf(mainWallet);
+
+            if (wcbtcBalanceInMainWallet > 0) {
+                // Calculate total WCBTC needed for beneficiaries who want WCBTC directly (not swapped)
+                uint256 totalWCBTCNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == wcbtcAddress &&
+                        !beneficiaries[i].shouldSwap
+                    ) {
+                        // Beneficiary wants WCBTC directly - calculate their portion
+                        totalWCBTCNeeded +=
+                            (wcbtcBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
+                    }
+                }
+
+                // Pull WCBTC from mainWallet using spending cap
+                if (totalWCBTCNeeded > 0) {
+                    _pullTokensFromMainWallet(wcbtcAddress, totalWCBTCNeeded);
+                }
+            }
+        }
+
+        // Pull WETH from mainWallet for beneficiaries who want WETH directly
+        if (wethAddress != address(0)) {
+            uint256 wethBalanceInMainWallet = IERC20(wethAddress).balanceOf(mainWallet);
+
+            if (wethBalanceInMainWallet > 0) {
+                // Calculate total WETH needed for beneficiaries who want WETH directly (not swapped)
+                uint256 totalWETHNeeded = 0;
+                for (uint256 i = 0; i < beneficiaries.length; i++) {
+                    if (
+                        beneficiaries[i].chainId == block.chainid &&
+                        beneficiaries[i].tokenAddress == wethAddress &&
+                        !beneficiaries[i].shouldSwap
+                    ) {
+                        // Beneficiary wants WETH directly - calculate their portion
+                        totalWETHNeeded +=
+                            (wethBalanceInMainWallet * beneficiaries[i].percentage) /
+                            BASIS_POINTS;
+                    }
+                }
+
+                // Pull WETH from mainWallet using spending cap
+                if (totalWETHNeeded > 0) {
+                    _pullTokensFromMainWallet(wethAddress, totalWETHNeeded);
+                }
+            }
+        }
+
         // Process ETH (native token in escrow) - for beneficiaries who want ETH or ETH swapped
         if (ethBalance > 0) {
             _processTokenForBeneficiaries(address(0), ethBalance);
@@ -524,6 +720,22 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             uint256 usdcInEscrow = IERC20(usdcAddress).balanceOf(address(this));
             if (usdcInEscrow > 0) {
                 _processTokenForBeneficiaries(usdcAddress, usdcInEscrow);
+            }
+        }
+
+        // Process WCBTC (now in escrow after pulling) - for beneficiaries who want WCBTC directly
+        if (wcbtcAddress != address(0)) {
+            uint256 wcbtcInEscrow = IERC20(wcbtcAddress).balanceOf(address(this));
+            if (wcbtcInEscrow > 0) {
+                _processTokenForBeneficiaries(wcbtcAddress, wcbtcInEscrow);
+            }
+        }
+
+        // Process WETH (now in escrow after pulling) - for beneficiaries who want WETH directly
+        if (wethAddress != address(0)) {
+            uint256 wethInEscrow = IERC20(wethAddress).balanceOf(address(this));
+            if (wethInEscrow > 0) {
+                _processTokenForBeneficiaries(wethAddress, wethInEscrow);
             }
         }
     }

@@ -129,9 +129,27 @@
       11155111: 'https://sepolia.etherscan.io/address/',
       8453: 'https://basescan.org/address/',
       84532: 'https://sepolia.basescan.org/address/',
+      5115: 'https://explorer.testnet.citrea.xyz/address/',
     };
 
     return (baseUrls[$wallet.chainId] || 'https://etherscan.io/address/') + address + '#code';
+  }
+
+  function getExplorerName(): string {
+    if (!$wallet.chainId) return 'Etherscan';
+    
+    switch ($wallet.chainId) {
+      case 1:
+      case 11155111:
+        return 'Etherscan';
+      case 8453:
+      case 84532:
+        return 'Basescan';
+      case 5115:
+        return 'Blockscout';
+      default:
+        return 'Etherscan';
+    }
   }
 
   function formatAddress(address: string): string {
@@ -239,7 +257,7 @@
           class="btn btn-primary"
           style="text-decoration: none;"
         >
-          View on Etherscan
+          View on {getExplorerName()}
         </a>
       </div>
     {/if}

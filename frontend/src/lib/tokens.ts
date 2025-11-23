@@ -34,7 +34,7 @@ export async function getTokenBalances(address: string, chainId?: number): Promi
 
   // If chainId is provided, query that chain
   // Otherwise query all supported chains
-  const chainsToQuery = chainId ? [chainId] : [1, 11155111, 8453, 84532]; // Ethereum mainnet, Sepolia, Base mainnet, Base Sepolia
+  const chainsToQuery = chainId ? [chainId] : [1, 11155111, 8453, 84532, 5115]; // Ethereum mainnet, Sepolia, Base mainnet, Base Sepolia, Citrea Testnet
 
   for (const chain of chainsToQuery) {
     try {
@@ -83,6 +83,8 @@ function getChainNativeTokenName(chainId: number): string {
     case 8453:
     case 84532:
       return 'ETH'; // Base also uses ETH
+    case 5115:
+      return 'cBTC'; // Citrea Testnet uses cBTC
     default:
       return 'ETH';
   }
@@ -101,6 +103,8 @@ function getChainNativeTokenFullName(chainId: number): string {
       return 'Base Ether';
     case 84532:
       return 'Base Sepolia Ether';
+    case 5115:
+      return 'Citrea Bitcoin';
     default:
       return 'Ether';
   }
@@ -272,15 +276,21 @@ async function queryRPCBalances(address: string, chainId: number): Promise<Token
 
   // Common token addresses to check
   const commonTokens: Record<number, string[]> = {
-    1: [
-      '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
-      '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
-      '0x6B175474E89094C44Da98b954EedeAC495271d0F', // DAI
-      '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', // WBTC
+    1: [ // Ethereum mainnet
+      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
+      '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', // CBTC + WCBTC + WBTC
     ],
-    8453: [
-      '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // USDC on Base
-      '0x50c5725949A6F0c72E6C4a641F24049A917E0d69', // DAI on Base
+    8453: [ // Base mainnet
+      '0x4200000000000000000000000000000000000006', // WETH
+      '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC
+      '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', // CBTC + WCBTC + WBTC
+    ],
+    5115: [ // Citrea Testnet
+      '0x4126E0f88008610d6E6C3059d93e9814c20139cB', // WETH
+      '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC
+      '0x383f2be66D530AB48e286efaA380dC0F214082b9', // CBTC
+      '0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93', // WCBTC + WBTC
     ],
   };
 

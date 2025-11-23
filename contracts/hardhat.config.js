@@ -36,34 +36,21 @@ module.exports = {
       url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 8453
+    },
+    citreaTestnet: {
+      url: process.env.CITREA_TESTNET_RPC_URL || "https://rpc.testnet.citrea.xyz",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 5115
     }
   },
   etherscan: {
-    // Etherscan API V2: Single API key works for all chains
-    // Use chainid parameter in requests to specify the network
     apiKey: process.env.ETHERSCAN_API_KEY || "",
     customChains: [
-      {
-        network: "sepolia",
-        chainId: 11155111,
-        urls: {
-          apiURL: "https://api.etherscan.io/v2/api",
-          browserURL: "https://sepolia.etherscan.io"
-        }
-      },
-      {
-        network: "mainnet",
-        chainId: 1,
-        urls: {
-          apiURL: "https://api.etherscan.io/v2/api",
-          browserURL: "https://etherscan.io"
-        }
-      },
       {
         network: "base",
         chainId: 8453,
         urls: {
-          apiURL: "https://api.etherscan.io/v2/api",
+          apiURL: "https://api.basescan.org/api",
           browserURL: "https://basescan.org"
         }
       },
@@ -71,13 +58,23 @@ module.exports = {
         network: "baseSepolia",
         chainId: 84532,
         urls: {
-          apiURL: "https://api.etherscan.io/v2/api",
+          apiURL: "https://api-sepolia.basescan.org/api",
           browserURL: "https://sepolia.basescan.org"
+        }
+      },
+      {
+        network: "citreaTestnet",
+        chainId: 5115,
+        urls: {
+          apiURL: "https://explorer.testnet.citrea.xyz/api",
+          browserURL: "https://explorer.testnet.citrea.xyz"
         }
       }
     ]
   },
   sourcify: {
-    enabled: true
+    enabled: true,
+    apiUrl: "https://sourcify.dev/server",
+    browserUrl: "https://sourcify.dev"
   }
 };

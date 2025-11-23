@@ -10,17 +10,23 @@
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
 
+  // Token selection
+  let includedTokens: string[] = [];
+  let swapTokensToUSDC: boolean = false;
+
+  // Available tokens - always show USDC, WETH, and WCBTC
+  $: availableTokens = [
+    { value: 'USDC', label: 'USDC' },
+    { value: 'WETH', label: 'WETH' },
+    { value: 'WCBTC', label: 'WCBTC' },
+  ];
+
   // Dynamic beneficiary rows
   let beneficiaryRows: Array<{
     address: string;
     percentage: number;
     chainId: number;
-    tokenType: 'native' | 'usdc';
-  }> = [{ address: '', percentage: 0, chainId: 1, tokenType: 'native' }];
-
-  let showTokenInfo = false;
-  let tooltipPosition = { top: 0, left: 0 };
-  let infoIconElement: SVGSVGElement | null = null;
+  }> = [{ address: '', percentage: 0, chainId: 1 }];
 
   // USDC token addresses
   const USDC_ADDRESSES: Record<number, Address> = {
@@ -66,7 +72,7 @@
   function addRow() {
     beneficiaryRows = [
       ...beneficiaryRows,
-      { address: '', percentage: 0, chainId: 1, tokenType: 'native' },
+      { address: '', percentage: 0, chainId: 1 },
     ];
   }
 
@@ -76,7 +82,7 @@
       beneficiaryRows = beneficiaryRows.filter((_, i) => i !== index);
     } else {
       // If only one row, just clear it
-      beneficiaryRows = [{ address: '', percentage: 0, chainId: 1, tokenType: 'native' }];
+      beneficiaryRows = [{ address: '', percentage: 0, chainId: 1 }];
     }
   }
 
@@ -126,14 +132,15 @@
           let shouldSwap = false;
           let targetToken: Address | undefined = undefined;
 
-          if (row.tokenType === 'usdc') {
+          // If swapTokensToUSDC is enabled, all tokens should be swapped to USDC
+          if (swapTokensToUSDC) {
             const usdcAddress = USDC_ADDRESSES[row.chainId];
             if (usdcAddress) {
               shouldSwap = true;
               targetToken = usdcAddress;
             }
           }
-          // If tokenType is 'native', shouldSwap stays false and targetToken stays undefined
+          // If swapTokensToUSDC is false, tokens are sent as-is (native)
 
           return {
             recipient: row.address, // Can be ENS name or address string
@@ -154,17 +161,23 @@
 
       // Get factory address from environment based on current chain
       // Sepolia uses the same env var as Ethereum mainnet
-      const factoryAddress = (
-        $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
-          ? import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM
-          : import.meta.env.VITE_FACTORY_ADDRESS_BASE
-      ) as Address;
+      // Citrea Testnet uses its own env var
+      let factoryAddress: Address;
+      let envVarName: string;
+      
+      if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_ETHEREUM';
+      } else if ($wallet.chainId === 5115) {
+        // Citrea Testnet
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_CITREA';
+      } else {
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_BASE';
+      }
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {
-        const envVarName =
-          $wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id
-            ? 'VITE_FACTORY_ADDRESS_ETHEREUM'
-            : 'VITE_FACTORY_ADDRESS_BASE';
         throw new Error(
           `Factory address not configured for chain ${$wallet.chainId}. Please set ${envVarName} in .env`
         );
@@ -178,6 +191,8 @@
           mainWallet: mainWalletToUse,
           inactivityPeriod: inactivityPeriodSeconds,
           beneficiaries: beneficiariesToUse,
+          includedTokens: includedTokens.length > 0 ? includedTokens : undefined,
+          swapTokensToUSDC: swapTokensToUSDC,
         },
         $wallet.chainId as any,
         (message: string, type: 'info' | 'success' | 'error' = 'info') => {
@@ -222,6 +237,44 @@
         </p>
       </div>
 
+      <!-- Tokens to Include -->
+      <div class="form-group">
+        <label for="tokens-to-include" class="form-label"> Tokens to Include </label>
+        <div class="token-checkboxes">
+          {#each availableTokens as token}
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                checked={includedTokens.includes(token.value)}
+                on:change={(e) => {
+                  if (e.currentTarget.checked) {
+                    includedTokens = [...includedTokens, token.value];
+                  } else {
+                    includedTokens = includedTokens.filter(t => t !== token.value);
+                  }
+                }}
+              />
+              <span>{token.label}</span>
+            </label>
+          {/each}
+        </div>
+        <p class="form-help">
+          Select tokens to include in the escrow. When the time comes, the escrow will pull these tokens from your wallet using approvals. It's important to note that the escrow can only handle ERC20 tokens, so your ETH and cBTC have to be available in their "wrapped forms" (WETH and WCBTC).
+        </p>
+        
+        {#if includedTokens.length > 0}
+          <div class="form-group" style="margin-top: 1rem;">
+            <label class="checkbox-label">
+              <input type="checkbox" bind:checked={swapTokensToUSDC} />
+              <span>Swap included tokens to USDC</span>
+            </label>
+            <p class="form-help" style="margin-top: 0.5rem;">
+              When enabled, all included tokens will be swapped to USDC before distribution to beneficiaries.
+            </p>
+          </div>
+        {/if}
+      </div>
+
       <!-- Beneficiaries -->
       <div class="form-group">
         <h3 class="form-label">Beneficiaries</h3>
@@ -233,63 +286,6 @@
                 <th>Address</th>
                 <th>Percentage</th>
                 <th>Chain</th>
-                <th>
-                  Token Distribution
-                  <div class="info-icon-container">
-                    <svg
-                      class="info-icon"
-                      width="16"
-                      height="16"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 16 15"
-                      fill="none"
-                      role="button"
-                      aria-label="Token distribution information"
-                      tabindex="0"
-                      bind:this={infoIconElement}
-                      on:mouseenter={() => {
-                        if (infoIconElement) {
-                          const rect = infoIconElement.getBoundingClientRect();
-                          tooltipPosition = {
-                            top: rect.top - 10,
-                            left: rect.left + rect.width / 2,
-                          };
-                        }
-                        showTokenInfo = true;
-                      }}
-                      on:mouseleave={() => (showTokenInfo = false)}
-                      on:focus={() => {
-                        if (infoIconElement) {
-                          const rect = infoIconElement.getBoundingClientRect();
-                          tooltipPosition = {
-                            top: rect.top - 10,
-                            left: rect.left + rect.width / 2,
-                          };
-                        }
-                        showTokenInfo = true;
-                      }}
-                      on:blur={() => (showTokenInfo = false)}
-                    >
-                      <path
-                        d="M7.11816 3.75H8.61816V5.25H7.11816V3.75ZM7.11816 6.75H8.61816V11.25H7.11816V6.75ZM7.86816 0C3.72816 0 0.368164 3.36 0.368164 7.5C0.368164 11.64 3.72816 15 7.86816 15C12.0082 15 15.3682 11.64 15.3682 7.5C15.3682 3.36 12.0082 0 7.86816 0ZM7.86816 13.5C4.56066 13.5 1.86816 10.8075 1.86816 7.5C1.86816 4.1925 4.56066 1.5 7.86816 1.5C11.1757 1.5 13.8682 4.1925 13.8682 7.5C13.8682 10.8075 11.1757 13.5 7.86816 13.5Z"
-                        fill="currentColor"
-                      ></path>
-                    </svg>
-                    {#if showTokenInfo}
-                      <div
-                        class="info-tooltip"
-                        style="top: {tooltipPosition.top}px; left: {tooltipPosition.left}px;"
-                      >
-                        <p>
-                          <strong>Native:</strong> Send existing tokens as-is to this beneficiary.
-                        </p>
-                        <p>
-                          <strong>USDC:</strong> Swap all tokens to USDC before sending to this beneficiary.
-                        </p>
-                      </div>
-                    {/if}
-                  </div>
-                </th>
                 <th></th>
               </tr>
             </thead>
@@ -319,12 +315,6 @@
                       {#each supportedChains as chain}
                         <option value={chain.id}>{chain.name}</option>
                       {/each}
-                    </select>
-                  </td>
-                  <td>
-                    <select bind:value={row.tokenType} class="form-select">
-                      <option value="native">Native</option>
-                      <option value="usdc">USDC</option>
                     </select>
                   </td>
                   <td>
@@ -410,6 +400,27 @@
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: var(--color-text-muted);
+  }
+
+  .token-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+  }
+
+  .checkbox-label input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
   }
 
   .beneficiaries-table-wrapper {
@@ -562,15 +573,6 @@
     font-size: 0.875rem;
     color: var(--color-text);
     line-height: 1.5;
-  }
-
-  .info-tooltip p:last-child {
-    margin-bottom: 0;
-  }
-
-  .info-tooltip strong {
-    color: var(--color-primary);
-    font-weight: 600;
   }
 
   .btn.btn-secondary:disabled {

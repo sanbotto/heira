@@ -217,22 +217,44 @@ export interface EscrowConfig {
   mainWallet: Address | string; // Address or ENS name
   inactivityPeriod: number; // seconds
   beneficiaries: BeneficiaryConfig[];
+  includedTokens?: string[]; // Array of token symbols to include (e.g., ["USDC", "WCBTC", "WETH"])
+  swapTokensToUSDC?: boolean; // Whether to swap included tokens to USDC
 }
 
 /**
  * Map chain ID to network name for verification API
  */
+/**
+ * Get the explorer name for a given chain ID
+ */
+export function getExplorerName(chainId: SupportedChainId | number): string {
+  switch (chainId) {
+    case 1:
+    case 11155111:
+      return 'Etherscan';
+    case 8453:
+    case 84532:
+      return 'Basescan';
+    case 5115:
+      return 'Blockscout';
+    default:
+      return 'Etherscan';
+  }
+}
+
 function getNetworkName(chainId: SupportedChainId): string {
   const networkMap: Record<SupportedChainId, string> = {
     1: 'mainnet',
     11155111: 'sepolia',
     8453: 'base',
+    84532: 'baseSepolia',
+    5115: 'citrea-testnet',
   };
   return networkMap[chainId] || 'sepolia';
 }
 
 /**
- * Automatically verify an escrow contract on Etherscan/Basescan
+ * Automatically verify an escrow contract on Etherscan/Basescan/Blockscout
  * Returns result object with success status and details
  */
 async function verifyEscrowContract(
@@ -592,10 +614,10 @@ export async function createEscrow(
     // If simulation didn't throw, provide generic error
     throw new Error(
       'Transaction failed (reverted). Common causes:\n' +
-        '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
-        '- Invalid address format\n' +
-        '- Invalid inactivity period\n' +
-        `Transaction hash: ${hash}`
+      '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
+      '- Invalid address format\n' +
+      '- Invalid inactivity period\n' +
+      `Transaction hash: ${hash}`
     );
   }
 
@@ -641,9 +663,9 @@ export async function createEscrow(
   if (!escrowAddress) {
     throw new Error(
       'Failed to find EscrowCreated event in transaction receipt. ' +
-        'The transaction may have succeeded but the event was not emitted. ' +
-        `Transaction hash: ${hash}. ` +
-        'Please verify the factory contract address is correct.'
+      'The transaction may have succeeded but the event was not emitted. ' +
+      `Transaction hash: ${hash}. ` +
+      'Please verify the factory contract address is correct.'
     );
   }
 
@@ -720,7 +742,7 @@ export async function createEscrow(
         if (b.shouldSwap && targetToken === '0x0000000000000000000000000000000000000000') {
           throw new Error(
             `Beneficiary ${i + 1} (${b.recipient}) has shouldSwap=true but targetToken is not set. ` +
-              `Please ensure targetToken is configured when enabling swaps.`
+            `Please ensure targetToken is configured when enabling swaps.`
           );
         }
         return targetToken;
@@ -794,8 +816,8 @@ export async function createEscrow(
       ) {
         validationErrors.push(
           `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+          `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+          `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
         );
       }
 
@@ -1119,34 +1141,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.estimateGas({
               account,
@@ -1206,34 +1228,34 @@ export async function createEscrow(
             // Try to call the contract directly to get revert reason
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.call({
               to: escrowAddr,
@@ -1312,34 +1334,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             const result = await publicClient.call({
               to: escrowAddr,
@@ -1540,8 +1562,8 @@ export async function createEscrow(
         ) {
           validationErrors.push(
             `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-              `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-              `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
           );
         }
 
@@ -1594,10 +1616,21 @@ export async function createEscrow(
         const errorMessage =
           errorParts.length > 0 ? errorParts.join('. ') : 'Transaction reverted for unknown reason';
 
+        // Get explorer URL for this chain
+        const explorerUrls: Record<number, string> = {
+          1: 'https://etherscan.io/tx/',
+          11155111: 'https://sepolia.etherscan.io/tx/',
+          8453: 'https://basescan.org/tx/',
+          84532: 'https://sepolia.basescan.org/tx/',
+          5115: 'https://explorer.testnet.citrea.xyz/tx/',
+        };
+        const explorerUrl = explorerUrls[chainId] || 'https://etherscan.io/tx/';
+        const explorerName = getExplorerName(chainId);
+
         throw new Error(
           `Failed to add beneficiaries: ${errorMessage}. ` +
-            `Transaction hash: ${beneficiaryHash}. ` +
-            `View on Etherscan: https://sepolia.etherscan.io/tx/${beneficiaryHash}`
+          `Transaction hash: ${beneficiaryHash}. ` +
+          `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
         );
       }
     }
@@ -1650,10 +1683,21 @@ export async function createEscrow(
             simError?.message ||
             'Unknown revert reason';
         }
+        // Get explorer URL for this chain
+        const explorerUrls: Record<number, string> = {
+          1: 'https://etherscan.io/tx/',
+          11155111: 'https://sepolia.etherscan.io/tx/',
+          8453: 'https://basescan.org/tx/',
+          84532: 'https://sepolia.basescan.org/tx/',
+          5115: 'https://explorer.testnet.citrea.xyz/tx/',
+        };
+        const explorerUrl = explorerUrls[chainId] || 'https://etherscan.io/tx/';
+        const explorerName = getExplorerName(chainId);
+
         throw new Error(
           `Failed to add ENS beneficiary ${beneficiary.recipient}: ${revertReason}. ` +
-            `Transaction hash: ${ensHash}. ` +
-            `Please check the transaction on Etherscan for details.`
+          `Transaction hash: ${ensHash}. ` +
+          `Please check the transaction on ${explorerName} for details: ${explorerUrl}${ensHash}`
         );
       }
     }
@@ -1668,23 +1712,66 @@ export async function createEscrow(
       ? (config.mainWallet as Address)
       : (config.mainWallet as Address));
 
-  // Request USDC approvals on all relevant chains if mainWallet matches connected account
+  // Request token approvals on all relevant chains if mainWallet matches connected account
   if (resolvedMainWalletAddress.toLowerCase() === account.toLowerCase()) {
     try {
-      onProgress?.('Requesting USDC approvals on all relevant chains...', 'info');
-      await requestUSDCApprovalsOnAllChains(
-        escrowAddr,
-        chainId,
-        resolvedMainWalletAddress,
-        onProgress
-      );
-      onProgress?.('✅ USDC approvals completed on all relevant chains', 'success');
+      // Get tokens to approve based on config
+      const tokensToApprove: Array<{ symbol: string; address: Address; chainId: number }> = [];
+
+      if (config.includedTokens && config.includedTokens.length > 0) {
+        const chainsToCheck = getChainsToCheckForApprovals(chainId);
+
+        for (const tokenSymbol of config.includedTokens) {
+          for (const checkChainId of chainsToCheck) {
+            let tokenAddress: Address | undefined;
+
+            if (tokenSymbol === 'USDC') {
+              tokenAddress = getUSDCAddress(checkChainId);
+            } else if (tokenSymbol === 'WCBTC') {
+              tokenAddress = getWCBTCAddress(checkChainId);
+            } else if (tokenSymbol === 'WETH') {
+              tokenAddress = getWETHAddress(checkChainId);
+            }
+
+            if (tokenAddress) {
+              tokensToApprove.push({ symbol: tokenSymbol, address: tokenAddress, chainId: checkChainId });
+            }
+          }
+        }
+      } else {
+        // Default: request USDC approvals (backward compatibility)
+        onProgress?.('Requesting USDC approvals on all relevant chains...', 'info');
+        await requestUSDCApprovalsOnAllChains(
+          escrowAddr,
+          chainId,
+          resolvedMainWalletAddress,
+          onProgress
+        );
+        onProgress?.('✅ USDC approvals completed on all relevant chains', 'success');
+      }
+
+      // Request approvals for selected tokens
+      if (tokensToApprove.length > 0) {
+        onProgress?.(
+          `Requesting approvals for ${tokensToApprove.length} token(s) on all relevant chains...`,
+          'info'
+        );
+        await requestTokenApprovalsOnAllChains(
+          escrowAddr,
+          chainId,
+          resolvedMainWalletAddress,
+          tokensToApprove,
+          onProgress
+        );
+        onProgress?.(`✅ Token approvals completed on all relevant chains`, 'success');
+      }
     } catch (error) {
       // Don't fail escrow creation if approvals fail - just warn
       const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn('Failed to request USDC approvals:', errorMsg);
+      console.warn('Failed to request token approvals:', errorMsg);
+      const tokenList = config.includedTokens?.join(', ') || 'USDC';
       onProgress?.(
-        `⚠️ Escrow created but USDC approvals failed: ${errorMsg}. Please approve USDC manually on all relevant chains.`,
+        `⚠️ Escrow created but token approvals failed: ${errorMsg}. Please approve ${tokenList} manually on all relevant chains.`,
         'info'
       );
     }
@@ -1692,28 +1779,30 @@ export async function createEscrow(
     // Main wallet is different from connected account - inform user
     const chainsToCheck = getChainsToCheckForApprovals(chainId);
     const chainNames = chainsToCheck.map(getChainName).join(' and ');
+    const tokenList = config.includedTokens?.join(', ') || 'USDC';
     onProgress?.(
-      `⚠️ Please ensure USDC is approved for this escrow on ${chainNames}. ` +
-        `The main wallet (${resolvedMainWalletAddress}) needs to approve USDC on all relevant chains.`,
+      `⚠️ Please ensure ${tokenList} is approved for this escrow on ${chainNames}. ` +
+      `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
       'info'
     );
   }
 
-  // Automatically verify the escrow contract on Etherscan/Basescan
+  // Automatically verify the escrow contract on Etherscan/Basescan/Blockscout
   const mainWalletForVerification = resolvedMainWalletAddress;
+  const explorerName = getExplorerName(chainId);
 
-  // Wait longer for the contract to be indexed on Etherscan before verifying
-  // Etherscan needs time to index the contract bytecode
-  console.log('Waiting for contract to be indexed on Etherscan...');
+  // Wait longer for the contract to be indexed on the explorer before verifying
+  // The explorer needs time to index the contract bytecode
+  console.log(`Waiting for contract to be indexed on ${explorerName}...`);
   onProgress?.(
-    'Waiting for contract to be indexed on Etherscan (this may take up to 30 seconds)...',
+    `Waiting for contract to be indexed on ${explorerName} (this may take up to 30 seconds)...`,
     'info'
   );
   await new Promise(resolve => setTimeout(resolve, 10000)); // Increased to 10 seconds
 
   try {
     console.log('Starting automatic verification...');
-    onProgress?.('Verifying contract on Etherscan...', 'info');
+    onProgress?.(`Verifying contract on ${explorerName}...`, 'info');
     const result = await verifyEscrowContract(
       escrowAddr,
       mainWalletForVerification,
@@ -1726,14 +1815,14 @@ export async function createEscrow(
     if (result.success || result.alreadyVerified) {
       console.log('✅ Escrow contract verified successfully!');
       const message = result.alreadyVerified
-        ? 'Contract is already verified on Etherscan!'
+        ? `Contract is already verified on ${explorerName}!`
         : 'Contract verified successfully!';
       onProgress?.(message, 'success');
     } else {
       // Verification failed, but don't fail the entire operation
       console.warn('⚠️ Automatic verification failed:', result.message);
       onProgress?.(
-        `Verification had issues: ${result.message}. Contract may still be verified - check Etherscan.`,
+        `Verification had issues: ${result.message}. Contract may still be verified - check ${explorerName}.`,
         'info'
       );
     }
@@ -1749,9 +1838,9 @@ export async function createEscrow(
       (errorLower.includes('bytecode') && errorLower.includes('verified'));
 
     if (mightBeVerified) {
-      console.log('⚠️ Verification reported issues, but contract may be verified on Etherscan');
+      console.log(`⚠️ Verification reported issues, but contract may be verified on ${explorerName}`);
       onProgress?.(
-        'Verification had issues, but contract appears to be verified. Please check Etherscan to confirm.',
+        `Verification had issues, but contract appears to be verified. Please check ${explorerName} to confirm.`,
         'info'
       );
     } else {
@@ -1949,6 +2038,9 @@ export function getChainsToCheckForApprovals(
   } else if (chainId === 11155111 || chainId === 84532) {
     // Testnet chains - check both Sepolia and Base Sepolia
     return [11155111, 84532];
+  } else if (chainId === 5115) {
+    // Citrea Testnet - only check itself
+    return [5115];
   }
   // Unknown chain - return empty array
   return [];
@@ -1962,6 +2054,29 @@ const USDC_ADDRESSES: Record<number, Address> = {
   11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Sepolia
   8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // Base Mainnet
   84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address, // Base Sepolia
+  5115: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Citrea Testnet
+};
+
+/**
+ * Get WCBTC address for a specific chain
+ */
+const WCBTC_ADDRESSES: Record<number, Address> = {
+  1: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599' as Address, // Ethereum Mainnet - WBTC
+  11155111: '0x29F2D40B0605204364c54e5c5C29723839eEF55b' as Address, // Sepolia - WBTC
+  8453: '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c' as Address, // Base Mainnet - WBTC
+  84532: '0x29F2D40B0605204364c54e5c5C29723839eEF55b' as Address, // Base Sepolia - WBTC
+  5115: '0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93' as Address, // Citrea Testnet - WCBTC
+};
+
+/**
+ * Get WETH address for a specific chain
+ */
+const WETH_ADDRESSES: Record<number, Address> = {
+  1: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' as Address, // Ethereum Mainnet
+  11155111: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' as Address, // Sepolia
+  8453: '0x4200000000000000000000000000000000000006' as Address, // Base Mainnet
+  84532: '0x4200000000000000000000000000000000000006' as Address, // Base Sepolia
+  5115: '0x4126E0f88008610d6E6C3059d93e9814c20139cB' as Address, // Citrea Testnet
 };
 
 /**
@@ -1969,6 +2084,20 @@ const USDC_ADDRESSES: Record<number, Address> = {
  */
 export function getUSDCAddress(chainId: SupportedChainId | number): Address | undefined {
   return USDC_ADDRESSES[Number(chainId)];
+}
+
+/**
+ * Get WCBTC address for a chain
+ */
+export function getWCBTCAddress(chainId: SupportedChainId | number): Address | undefined {
+  return WCBTC_ADDRESSES[Number(chainId)];
+}
+
+/**
+ * Get WETH address for a chain
+ */
+export function getWETHAddress(chainId: SupportedChainId | number): Address | undefined {
+  return WETH_ADDRESSES[Number(chainId)];
 }
 
 /**
@@ -2022,7 +2151,7 @@ export async function requestUSDCApprovalsOnAllChains(
           // If public client works, the issue is likely wallet connection
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
-              `Current chain may not match.`
+            `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2107,6 +2236,175 @@ export async function requestUSDCApprovalsOnAllChains(
 }
 
 /**
+ * Request token approvals on all relevant chains
+ * @param escrowAddress The escrow contract address (spender)
+ * @param deploymentChainId The chain ID where the escrow is deployed
+ * @param mainWalletAddress The main wallet address that needs to approve
+ * @param tokens Array of {symbol, address} objects for tokens to approve
+ * @param onProgress Optional progress callback
+ * @return Map of chain ID to transaction hash
+ */
+export async function requestTokenApprovalsOnAllChains(
+  escrowAddress: Address,
+  deploymentChainId: SupportedChainId,
+  mainWalletAddress: Address,
+  tokens: Array<{ symbol: string; address: Address; chainId: number }>,
+  onProgress?: (message: string, type?: 'info' | 'success' | 'error') => void
+): Promise<Map<number, string>> {
+  const chainsToCheck = getChainsToCheckForApprovals(deploymentChainId);
+  const results = new Map<number, string>();
+
+  if (chainsToCheck.length === 0) {
+    onProgress?.('No chains to check for approvals', 'info');
+    return results;
+  }
+
+  if (tokens.length === 0) {
+    onProgress?.('No tokens to approve', 'info');
+    return results;
+  }
+
+  // Group tokens by chain
+  const tokensByChain = new Map<number, Array<{ symbol: string; address: Address }>>();
+  for (const token of tokens) {
+    if (!tokensByChain.has(token.chainId)) {
+      tokensByChain.set(token.chainId, []);
+    }
+    tokensByChain.get(token.chainId)!.push({ symbol: token.symbol, address: token.address });
+  }
+
+  onProgress?.(
+    `Requesting approvals for tokens on ${chainsToCheck.length} chain(s)...`,
+    'info'
+  );
+
+  // Request approvals on each chain
+  for (const chainId of chainsToCheck) {
+    try {
+      // Get tokens for this chain
+      const tokensForChain = tokensByChain.get(chainId) || [];
+
+      if (tokensForChain.length === 0) {
+        onProgress?.(`Skipping chain ${chainId}: No tokens available`, 'info');
+        continue;
+      }
+
+      onProgress?.(
+        `Requesting approvals on ${getChainName(chainId)}... Please switch chain if prompted.`,
+        'info'
+      );
+
+      // Get wallet client for this chain
+      let walletClient;
+      try {
+        walletClient = await getWalletClient(chainId);
+      } catch (walletError) {
+        try {
+          const publicClient = getPublicClient(chainId);
+          throw new Error(
+            `Please switch your wallet to ${getChainName(chainId)} to approve tokens. ` +
+            `Current chain may not match.`
+          );
+        } catch {
+          throw new Error(
+            `Chain ${getChainName(chainId)} is not available. Please add it to your wallet.`
+          );
+        }
+      }
+
+      const publicClient = getPublicClient(chainId);
+      const [account] = await walletClient.getAddresses();
+
+      // Verify we're on the correct chain
+      const currentChainId = await publicClient.getChainId();
+      if (currentChainId !== chainId) {
+        onProgress?.(
+          `Please switch your wallet to ${getChainName(chainId)} (current: ${getChainName(currentChainId)})`,
+          'info'
+        );
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const newChainId = await publicClient.getChainId();
+        if (newChainId !== chainId) {
+          throw new Error(`Please switch your wallet to ${getChainName(chainId)} to continue.`);
+        }
+      }
+
+      // Check current allowances and request approvals
+      const ERC20_ABI = [
+        {
+          inputs: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' },
+          ],
+          name: 'allowance',
+          outputs: [{ name: '', type: 'uint256' }],
+          stateMutability: 'view',
+          type: 'function',
+        },
+      ] as const;
+
+      const maxApproval = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+
+      for (const token of tokensForChain) {
+        try {
+          const currentAllowance = await publicClient.readContract({
+            address: token.address,
+            abi: ERC20_ABI,
+            functionName: 'allowance',
+            args: [mainWalletAddress, escrowAddress],
+          });
+
+          // Only approve if allowance is insufficient
+          if (currentAllowance < maxApproval) {
+            onProgress?.(
+              `Approving ${token.symbol} on ${getChainName(chainId)}... Please sign.`,
+              'info'
+            );
+
+            const hash = await walletClient.writeContract({
+              account,
+              address: token.address,
+              abi: ERC20_APPROVE_ABI,
+              functionName: 'approve',
+              args: [escrowAddress, maxApproval],
+            });
+
+            onProgress?.(
+              `Waiting for ${token.symbol} approval confirmation on ${getChainName(chainId)}...`,
+              'info'
+            );
+            await publicClient.waitForTransactionReceipt({ hash });
+            results.set(chainId, hash);
+            onProgress?.(
+              `✅ ${token.symbol} approved on ${getChainName(chainId)}`,
+              'success'
+            );
+          } else {
+            onProgress?.(
+              `✅ ${token.symbol} already approved on ${getChainName(chainId)}`,
+              'info'
+            );
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          onProgress?.(
+            `Failed to approve ${token.symbol} on chain ${chainId}: ${errorMsg}`,
+            'error'
+          );
+          // Continue with other tokens even if one fails
+        }
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      onProgress?.(`Failed to approve tokens on chain ${chainId}: ${errorMsg}`, 'error');
+      // Continue with other chains even if one fails
+    }
+  }
+
+  return results;
+}
+
+/**
  * Helper function to get chain name
  */
 function getChainName(chainId: SupportedChainId | number): string {
@@ -2119,6 +2417,8 @@ function getChainName(chainId: SupportedChainId | number): string {
       return 'Base Mainnet';
     case 84532:
       return 'Base Sepolia';
+    case 5115:
+      return 'Citrea Testnet';
     default:
       return `Chain ${chainId}`;
   }
