@@ -227,7 +227,8 @@ export class KeeperService {
             `Escrow ${escrowMetadata.escrowAddress} on ${network.name} is Active (status: ${statusNumber}), proceeding with email check`,
           );
 
-          const timeUntilExecution = await escrowContract.getTimeUntilExecution();
+          const timeUntilExecution =
+            await escrowContract.getTimeUntilExecution();
           const daysRemaining = Number(timeUntilExecution) / (24 * 60 * 60);
 
           console.log(
@@ -243,11 +244,12 @@ export class KeeperService {
             const shouldSendEmail =
               !escrowMetadata.lastEmailSent ||
               Date.now() - escrowMetadata.lastEmailSent >
-              SIX_DAYS_SECONDS * 1000;
+                SIX_DAYS_SECONDS * 1000;
 
             if (!shouldSendEmail && escrowMetadata.lastEmailSent) {
               const daysSinceLastEmail =
-                (Date.now() - escrowMetadata.lastEmailSent) / (24 * 60 * 60 * 1000);
+                (Date.now() - escrowMetadata.lastEmailSent) /
+                (24 * 60 * 60 * 1000);
               console.log(
                 `Skipping email for escrow ${escrowMetadata.escrowAddress} on ${network.name}: email already sent ${daysSinceLastEmail.toFixed(2)} days ago`,
               );
@@ -405,7 +407,10 @@ export function createKeeperFromEnv(): KeeperService | null {
 
   // Ethereum (mainnet and sepolia use the same factory)
   const ethereumFactory = process.env.FACTORY_ADDRESS_ETHEREUM;
-  if (ethereumFactory && ethereumFactory !== "0x0000000000000000000000000000000000000000") {
+  if (
+    ethereumFactory &&
+    ethereumFactory !== "0x0000000000000000000000000000000000000000"
+  ) {
     // Check if we have RPC URLs for both mainnet and sepolia
     if (process.env.MAINNET_RPC_URL) {
       networks.push({
@@ -425,7 +430,10 @@ export function createKeeperFromEnv(): KeeperService | null {
 
   // Base (mainnet and sepolia use the same factory)
   const baseFactory = process.env.FACTORY_ADDRESS_BASE;
-  if (baseFactory && baseFactory !== "0x0000000000000000000000000000000000000000") {
+  if (
+    baseFactory &&
+    baseFactory !== "0x0000000000000000000000000000000000000000"
+  ) {
     // Check if we have RPC URLs for both Base mainnet and Base Sepolia
     if (process.env.BASE_RPC_URL) {
       networks.push({
@@ -445,7 +453,10 @@ export function createKeeperFromEnv(): KeeperService | null {
 
   // Citrea Testnet
   const citreaFactory = process.env.FACTORY_ADDRESS_CITREA;
-  if (citreaFactory && citreaFactory !== "0x0000000000000000000000000000000000000000") {
+  if (
+    citreaFactory &&
+    citreaFactory !== "0x0000000000000000000000000000000000000000"
+  ) {
     if (process.env.CITREA_RPC_URL) {
       networks.push({
         name: "citreaTestnet",

@@ -84,7 +84,12 @@ escrowsRouter.post("/register", async (req, res) => {
     }
 
     // Validate email format if provided (skip validation if email is null/empty to allow disabling)
-    if (email && email !== null && email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (
+      email &&
+      email !== null &&
+      email.trim() !== "" &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+    ) {
       return res.status(400).json({
         success: false,
         message: "Invalid email format",
@@ -114,7 +119,8 @@ escrowsRouter.post("/register", async (req, res) => {
       // This also validates that the contract exists
       if (!inactivityPeriodToUse) {
         try {
-          const contractInactivityPeriod = await escrowContract.inactivityPeriod();
+          const contractInactivityPeriod =
+            await escrowContract.inactivityPeriod();
           inactivityPeriodToUse = Number(contractInactivityPeriod);
         } catch (error) {
           // If we can't get inactivity period, use 0 as fallback
@@ -123,7 +129,10 @@ escrowsRouter.post("/register", async (req, res) => {
       }
     } catch (error: any) {
       const errorMessage = error.message || String(error);
-      if (errorMessage.includes("invalid address") || errorMessage.includes("call revert")) {
+      if (
+        errorMessage.includes("invalid address") ||
+        errorMessage.includes("call revert")
+      ) {
         return res.status(400).json({
           success: false,
           message: "Invalid escrow address or contract not found",
@@ -141,7 +150,10 @@ escrowsRouter.post("/register", async (req, res) => {
     const metadata: EscrowMetadata = {
       escrowAddress: escrowAddress.toLowerCase(),
       network,
-      email: email && email !== null && email.trim() !== "" ? email.trim() : undefined,
+      email:
+        email && email !== null && email.trim() !== ""
+          ? email.trim()
+          : undefined,
       inactivityPeriod: inactivityPeriodToUse || 0,
       createdAt: Date.now(),
     };

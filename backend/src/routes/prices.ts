@@ -10,7 +10,7 @@ const ETHEREUM_TOKEN_ADDRESSES: Record<string, string> = {
   WETH: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
   USDC: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
   WBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
-  WCBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"
+  WCBTC: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
 };
 
 const BASE_TOKEN_ADDRESSES: Record<string, string> = {
@@ -18,7 +18,7 @@ const BASE_TOKEN_ADDRESSES: Record<string, string> = {
   WETH: "0x4200000000000000000000000000000000000006",
   USDC: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
   WBTC: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
-  WCBTC: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c"
+  WCBTC: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c",
 };
 
 const CITREA_TOKEN_ADDRESSES: Record<string, string> = {
@@ -27,7 +27,7 @@ const CITREA_TOKEN_ADDRESSES: Record<string, string> = {
   USDC: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
   CBTC: "0x383f2be66D530AB48e286efaA380dC0F214082b9",
   WCBTC: "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93",
-  WBTC: "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93"
+  WBTC: "0x8d0c9d1c17aE5e40ffF9bE350f57840E9E66Cd93",
 };
 
 function getPriceLookupChainId(chainId: number): number {
@@ -108,9 +108,13 @@ pricesRouter.get("/", async (req, res) => {
     try {
       // 1inch Price API format: GET /price/v1.1/{chainId}/{address1},{address2},...
       // Response format: { "0x...": price_number, ... }
-      const addresses = addressesToFetch.map((item) => item.address.toLowerCase()).join(",");
+      const addresses = addressesToFetch
+        .map((item) => item.address.toLowerCase())
+        .join(",");
       const url = `${ONEINCH_API_BASE}/${lookupChainId}/${addresses}`;
-      console.log(`Fetching prices from ${url} (${addressesToFetch.length} tokens)`);
+      console.log(
+        `Fetching prices from ${url} (${addressesToFetch.length} tokens)`,
+      );
 
       const response = await fetch(url, {
         headers: {
@@ -122,7 +126,7 @@ pricesRouter.get("/", async (req, res) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(
-          `Failed to fetch prices: ${response.status} ${errorText}`
+          `Failed to fetch prices: ${response.status} ${errorText}`,
         );
         return res.json({
           success: true,
@@ -150,7 +154,10 @@ pricesRouter.get("/", async (req, res) => {
         }
 
         if (priceValue !== undefined) {
-          const rawPrice = typeof priceValue === 'string' ? parseFloat(priceValue) : priceValue;
+          const rawPrice =
+            typeof priceValue === "string"
+              ? parseFloat(priceValue)
+              : priceValue;
           if (!isNaN(rawPrice) && rawPrice > 0) {
             // 1inch API returns prices as integers scaled by 1e18
             // The price represents the token price in USD * 1e18
@@ -164,7 +171,9 @@ pricesRouter.get("/", async (req, res) => {
             // So we divide by 1e18 to get USD price
             const priceInUSD = Number(rawPrice) / 1e18;
             prices[symbol] = priceInUSD;
-            console.log(`✅ Found price for ${symbol}: ${rawPrice} -> ${priceInUSD} USD`);
+            console.log(
+              `✅ Found price for ${symbol}: ${rawPrice} -> ${priceInUSD} USD`,
+            );
           }
         }
       }

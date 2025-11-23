@@ -30,9 +30,7 @@ export async function sendInactivityWarning(
     daysRemaining === 1 ? "1 day" : `${Math.ceil(daysRemaining)} days`;
 
   // Generate explorer URL if not provided
-  const explorerLink =
-    explorerUrl ||
-    getExplorerUrl(escrowAddress, network);
+  const explorerLink = explorerUrl || getExplorerUrl(escrowAddress, network);
 
   // Email subject
   const subject = `Heira Escrow: Inactivity Period Approaching`;
@@ -116,7 +114,7 @@ This is an automated notification from Heira.`;
   const response = await fetch(MAILPACE_API_URL, {
     method: "POST",
     headers: {
-      "Accept": "application/json",
+      Accept: "application/json",
       "Content-Type": "application/json",
       "MailPace-Server-Token": MAILPACE_API_TOKEN,
     },

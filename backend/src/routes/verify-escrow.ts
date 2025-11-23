@@ -10,7 +10,14 @@ const __dirname = path.dirname(__filename);
 
 export const verifyEscrowRouter = Router();
 
-const VALID_NETWORKS = ["sepolia", "baseSepolia", "mainnet", "base", "citrea-testnet", "citreaTestnet"];
+const VALID_NETWORKS = [
+  "sepolia",
+  "baseSepolia",
+  "mainnet",
+  "base",
+  "citrea-testnet",
+  "citreaTestnet",
+];
 
 function isBlockscoutNetwork(network: string): boolean {
   return network === "citrea-testnet" || network === "citreaTestnet";
@@ -172,14 +179,21 @@ verifyEscrowRouter.post("/", async (req, res) => {
         });
       }
 
-      if (isBlockscoutNetwork(network) && errorOutput.includes("Unable to verify")) {
-        console.warn("Blockscout verification failed, but contract is still functional");
+      if (
+        isBlockscoutNetwork(network) &&
+        errorOutput.includes("Unable to verify")
+      ) {
+        console.warn(
+          "Blockscout verification failed, but contract is still functional",
+        );
         return res.json({
           success: true,
-          message: "Contract deployed successfully. Verification failed on Blockscout (this is common and non-fatal). Contract is fully functional.",
+          message:
+            "Contract deployed successfully. Verification failed on Blockscout (this is common and non-fatal). Contract is fully functional.",
           explorerUrl: `https://explorer.testnet.citrea.xyz/address/${escrowAddress}`,
           alreadyVerified: false,
-          verificationNote: "Blockscout verification can be unreliable. Contract functionality is not affected.",
+          verificationNote:
+            "Blockscout verification can be unreliable. Contract functionality is not affected.",
         });
       }
 
