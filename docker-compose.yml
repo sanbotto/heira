@@ -31,7 +31,7 @@ services:
 
       # API Keys
       ETHERSCAN_API_KEY: ${ETHERSCAN_API_KEY}
-      1INCH_API_KEY: ${1INCH_API_KEY:-}
+      ONEINCH_API_KEY: ${ONEINCH_API_KEY:-}
 
       # MailPace Configuration (for email notifications)
       MAILPACE_API_TOKEN: ${MAILPACE_API_TOKEN:-}

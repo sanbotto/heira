@@ -71,11 +71,11 @@ pricesRouter.get("/", async (req, res) => {
       });
     }
 
-    const apiKey = process.env["1INCH_API_KEY"];
+    const apiKey = process.env["ONEINCH_API_KEY"];
     if (!apiKey) {
       return res.status(500).json({
         success: false,
-        message: "1INCH_API_KEY not configured on server",
+        message: "ONEINCH_API_KEY not configured on server",
       });
     }
 
