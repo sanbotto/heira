@@ -276,17 +276,20 @@ async function queryRPCBalances(address: string, chainId: number): Promise<Token
 
   // Common token addresses to check
   const commonTokens: Record<number, string[]> = {
-    1: [ // Ethereum mainnet
+    1: [
+      // Ethereum mainnet
       '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
       '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', // CBTC + WCBTC + WBTC
     ],
-    8453: [ // Base mainnet
+    8453: [
+      // Base mainnet
       '0x4200000000000000000000000000000000000006', // WETH
       '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC
       '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', // CBTC + WCBTC + WBTC
     ],
-    5115: [ // Citrea Testnet
+    5115: [
+      // Citrea Testnet
       '0x4126E0f88008610d6E6C3059d93e9814c20139cB', // WETH
       '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', // USDC
       '0x383f2be66D530AB48e286efaA380dC0F214082b9', // CBTC

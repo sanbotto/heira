@@ -614,10 +614,10 @@ export async function createEscrow(
     // If simulation didn't throw, provide generic error
     throw new Error(
       'Transaction failed (reverted). Common causes:\n' +
-      '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
-      '- Invalid address format\n' +
-      '- Invalid inactivity period\n' +
-      `Transaction hash: ${hash}`
+        '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
+        '- Invalid address format\n' +
+        '- Invalid inactivity period\n' +
+        `Transaction hash: ${hash}`
     );
   }
 
@@ -663,9 +663,9 @@ export async function createEscrow(
   if (!escrowAddress) {
     throw new Error(
       'Failed to find EscrowCreated event in transaction receipt. ' +
-      'The transaction may have succeeded but the event was not emitted. ' +
-      `Transaction hash: ${hash}. ` +
-      'Please verify the factory contract address is correct.'
+        'The transaction may have succeeded but the event was not emitted. ' +
+        `Transaction hash: ${hash}. ` +
+        'Please verify the factory contract address is correct.'
     );
   }
 
@@ -742,7 +742,7 @@ export async function createEscrow(
         if (b.shouldSwap && targetToken === '0x0000000000000000000000000000000000000000') {
           throw new Error(
             `Beneficiary ${i + 1} (${b.recipient}) has shouldSwap=true but targetToken is not set. ` +
-            `Please ensure targetToken is configured when enabling swaps.`
+              `Please ensure targetToken is configured when enabling swaps.`
           );
         }
         return targetToken;
@@ -816,8 +816,8 @@ export async function createEscrow(
       ) {
         validationErrors.push(
           `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-          `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-          `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
         );
       }
 
@@ -1141,34 +1141,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [
-                  recipients,
-                  percentages,
-                  chainIds,
-                  tokenAddresses,
-                  shouldSwaps,
-                  targetTokens,
-                ],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             await publicClient.estimateGas({
               account,
@@ -1228,34 +1228,34 @@ export async function createEscrow(
             // Try to call the contract directly to get revert reason
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [
-                  recipients,
-                  percentages,
-                  chainIds,
-                  tokenAddresses,
-                  shouldSwaps,
-                  targetTokens,
-                ],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             await publicClient.call({
               to: escrowAddr,
@@ -1334,34 +1334,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                abi: [
-                  {
-                    inputs: [
-                      { name: '_recipients', type: 'address[]' },
-                      { name: '_percentages', type: 'uint256[]' },
-                      { name: '_chainIds', type: 'uint256[]' },
-                    ],
-                    name: 'addBeneficiariesBatch',
-                    outputs: [],
-                    stateMutability: 'nonpayable',
-                    type: 'function',
-                  },
-                ] as const,
-                functionName: 'addBeneficiariesBatch',
-                args: [recipients, percentages, chainIds],
-              })
+                  abi: [
+                    {
+                      inputs: [
+                        { name: '_recipients', type: 'address[]' },
+                        { name: '_percentages', type: 'uint256[]' },
+                        { name: '_chainIds', type: 'uint256[]' },
+                      ],
+                      name: 'addBeneficiariesBatch',
+                      outputs: [],
+                      stateMutability: 'nonpayable',
+                      type: 'function',
+                    },
+                  ] as const,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [recipients, percentages, chainIds],
+                })
               : encodeFunctionData({
-                abi: ESCROW_ABI,
-                functionName: 'addBeneficiariesBatch',
-                args: [
-                  recipients,
-                  percentages,
-                  chainIds,
-                  tokenAddresses,
-                  shouldSwaps,
-                  targetTokens,
-                ],
-              });
+                  abi: ESCROW_ABI,
+                  functionName: 'addBeneficiariesBatch',
+                  args: [
+                    recipients,
+                    percentages,
+                    chainIds,
+                    tokenAddresses,
+                    shouldSwaps,
+                    targetTokens,
+                  ],
+                });
 
             const result = await publicClient.call({
               to: escrowAddr,
@@ -1562,8 +1562,8 @@ export async function createEscrow(
         ) {
           validationErrors.push(
             `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+              `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+              `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
           );
         }
 
@@ -1629,8 +1629,8 @@ export async function createEscrow(
 
         throw new Error(
           `Failed to add beneficiaries: ${errorMessage}. ` +
-          `Transaction hash: ${beneficiaryHash}. ` +
-          `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
+            `Transaction hash: ${beneficiaryHash}. ` +
+            `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
         );
       }
     }
@@ -1696,8 +1696,8 @@ export async function createEscrow(
 
         throw new Error(
           `Failed to add ENS beneficiary ${beneficiary.recipient}: ${revertReason}. ` +
-          `Transaction hash: ${ensHash}. ` +
-          `Please check the transaction on ${explorerName} for details: ${explorerUrl}${ensHash}`
+            `Transaction hash: ${ensHash}. ` +
+            `Please check the transaction on ${explorerName} for details: ${explorerUrl}${ensHash}`
         );
       }
     }
@@ -1734,7 +1734,11 @@ export async function createEscrow(
             }
 
             if (tokenAddress) {
-              tokensToApprove.push({ symbol: tokenSymbol, address: tokenAddress, chainId: checkChainId });
+              tokensToApprove.push({
+                symbol: tokenSymbol,
+                address: tokenAddress,
+                chainId: checkChainId,
+              });
             }
           }
         }
@@ -1782,7 +1786,7 @@ export async function createEscrow(
     const tokenList = config.includedTokens?.join(', ') || 'USDC';
     onProgress?.(
       `⚠️ Please ensure ${tokenList} is approved for this escrow on ${chainNames}. ` +
-      `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
+        `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
       'info'
     );
   }
@@ -1838,7 +1842,9 @@ export async function createEscrow(
       (errorLower.includes('bytecode') && errorLower.includes('verified'));
 
     if (mightBeVerified) {
-      console.log(`⚠️ Verification reported issues, but contract may be verified on ${explorerName}`);
+      console.log(
+        `⚠️ Verification reported issues, but contract may be verified on ${explorerName}`
+      );
       onProgress?.(
         `Verification had issues, but contract appears to be verified. Please check ${explorerName} to confirm.`,
         'info'
@@ -2151,7 +2157,7 @@ export async function requestUSDCApprovalsOnAllChains(
           // If public client works, the issue is likely wallet connection
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
-            `Current chain may not match.`
+              `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2273,10 +2279,7 @@ export async function requestTokenApprovalsOnAllChains(
     tokensByChain.get(token.chainId)!.push({ symbol: token.symbol, address: token.address });
   }
 
-  onProgress?.(
-    `Requesting approvals for tokens on ${chainsToCheck.length} chain(s)...`,
-    'info'
-  );
+  onProgress?.(`Requesting approvals for tokens on ${chainsToCheck.length} chain(s)...`, 'info');
 
   // Request approvals on each chain
   for (const chainId of chainsToCheck) {
@@ -2303,7 +2306,7 @@ export async function requestTokenApprovalsOnAllChains(
           const publicClient = getPublicClient(chainId);
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve tokens. ` +
-            `Current chain may not match.`
+              `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2343,7 +2346,9 @@ export async function requestTokenApprovalsOnAllChains(
         },
       ] as const;
 
-      const maxApproval = BigInt('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff');
+      const maxApproval = BigInt(
+        '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff'
+      );
 
       for (const token of tokensForChain) {
         try {
@@ -2375,15 +2380,9 @@ export async function requestTokenApprovalsOnAllChains(
             );
             await publicClient.waitForTransactionReceipt({ hash });
             results.set(chainId, hash);
-            onProgress?.(
-              `✅ ${token.symbol} approved on ${getChainName(chainId)}`,
-              'success'
-            );
+            onProgress?.(`✅ ${token.symbol} approved on ${getChainName(chainId)}`, 'success');
           } else {
-            onProgress?.(
-              `✅ ${token.symbol} already approved on ${getChainName(chainId)}`,
-              'info'
-            );
+            onProgress?.(`✅ ${token.symbol} already approved on ${getChainName(chainId)}`, 'info');
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);

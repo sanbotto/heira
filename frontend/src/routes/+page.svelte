@@ -4,8 +4,10 @@
 
   function getIsDark(): boolean {
     if (!browser) return false;
-    return document.documentElement.classList.contains('dark') || 
-           document.documentElement.getAttribute('data-theme') === 'dark';
+    return (
+      document.documentElement.classList.contains('dark') ||
+      document.documentElement.getAttribute('data-theme') === 'dark'
+    );
   }
 
   // Initialize to false to match server render (prevents hydration mismatch)
@@ -13,10 +15,10 @@
 
   onMount(async () => {
     if (!browser) return;
-    
+
     await tick();
     isDark = getIsDark();
-    
+
     // Watch for DOM changes (when theme is applied)
     const observer = new MutationObserver(() => {
       const current = getIsDark();
@@ -24,12 +26,12 @@
         isDark = current;
       }
     });
-    
+
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class', 'data-theme']
+      attributeFilter: ['class', 'data-theme'],
     });
-    
+
     return () => observer.disconnect();
   });
 </script>
@@ -146,10 +148,18 @@
   <h2 class="powered-by-title">Powered by</h2>
   <div class="powered-by-logos">
     <div class="logo-item">
-      <img src={isDark ? '/hardhat-logo-dark.svg' : '/hardhat-logo.svg'} alt="Hardhat" class="logo-img" />
+      <img
+        src={isDark ? '/hardhat-logo-dark.svg' : '/hardhat-logo.svg'}
+        alt="Hardhat"
+        class="logo-img"
+      />
     </div>
     <div class="logo-item">
-      <img src={isDark ? '/the-graph-dark.svg' : '/the-graph.svg'} alt="The Graph" class="logo-img" />
+      <img
+        src={isDark ? '/the-graph-dark.svg' : '/the-graph.svg'}
+        alt="The Graph"
+        class="logo-img"
+      />
     </div>
     <div class="logo-item">
       <img src={isDark ? '/ledger-dark.svg' : '/ledger.svg'} alt="Ledger" class="logo-img" />
@@ -167,10 +177,18 @@
       <img src={isDark ? '/fluence-dark.svg' : '/fluence.svg'} alt="Fluence" class="logo-img" />
     </div>
     <div class="logo-item">
-      <img src={isDark ? '/nethermind-dark.svg' : '/nethermind.svg'} alt="Nethermind" class="logo-img" />
+      <img
+        src={isDark ? '/nethermind-dark.svg' : '/nethermind.svg'}
+        alt="Nethermind"
+        class="logo-img"
+      />
     </div>
     <div class="logo-item">
-      <img src={isDark ? '/keeperhub-dark.svg' : '/keeperhub.svg'} alt="KeeperHub" class="logo-img" />
+      <img
+        src={isDark ? '/keeperhub-dark.svg' : '/keeperhub.svg'}
+        alt="KeeperHub"
+        class="logo-img"
+      />
     </div>
   </div>
 </section>

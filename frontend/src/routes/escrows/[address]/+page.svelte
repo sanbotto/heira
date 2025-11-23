@@ -88,9 +88,11 @@
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
-      
-      const response = await fetch(`${backendUrl}/api/escrows/${escrowAddress}?network=${networkName}`);
-      
+
+      const response = await fetch(
+        `${backendUrl}/api/escrows/${escrowAddress}?network=${networkName}`
+      );
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.escrow) {
@@ -175,7 +177,7 @@
 
   function getExplorerName(): string {
     if (!$wallet.chainId) return 'Etherscan';
-    
+
     switch ($wallet.chainId) {
       case 1:
       case 11155111:
@@ -245,7 +247,7 @@
     }
 
     const email = emailInput.trim();
-    
+
     // Basic email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       showToastMessage('Please enter a valid email address', 'error');
@@ -258,7 +260,7 @@
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
-      
+
       // Get inactivity period from the escrow contract
       let inactivityPeriod: number | undefined = undefined;
       try {
@@ -302,12 +304,13 @@
 
       showToastMessage('Email notifications enabled successfully!', 'success');
       emailInput = '';
-      
+
       // Reload email notification data
       await loadEmailNotification();
     } catch (error) {
       console.error('Failed to enable email notifications:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to enable email notifications';
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to enable email notifications';
       showToastMessage(errorMsg, 'error');
     } finally {
       enablingEmail = false;
@@ -325,7 +328,7 @@
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
       const networkName = getNetworkName($wallet.chainId);
-      
+
       // Get inactivity period from the escrow contract
       let inactivityPeriod: number | undefined = undefined;
       try {
@@ -369,12 +372,13 @@
       }
 
       showToastMessage('Email notifications disabled successfully!', 'success');
-      
+
       // Reload email notification data
       await loadEmailNotification();
     } catch (error) {
       console.error('Failed to disable email notifications:', error);
-      const errorMsg = error instanceof Error ? error.message : 'Failed to disable email notifications';
+      const errorMsg =
+        error instanceof Error ? error.message : 'Failed to disable email notifications';
       showToastMessage(errorMsg, 'error');
     } finally {
       disablingEmail = false;
@@ -400,12 +404,12 @@
 
       if (receipt.status === 'success') {
         showToastMessage('Escrow deactivated successfully!', 'success');
-        
+
         // Unregister escrow from keeper service
         try {
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
           const networkName = getNetworkName($wallet.chainId);
-          
+
           await fetch(`${backendUrl}/api/escrows/unregister`, {
             method: 'POST',
             headers: {
@@ -416,13 +420,13 @@
               network: networkName,
             }),
           });
-          
+
           console.log('Escrow unregistered from keeper service');
         } catch (unregisterError) {
           console.warn('Failed to unregister escrow from keeper:', unregisterError);
           // Don't fail the whole flow if unregistration fails
         }
-        
+
         // Reload escrow data to reflect the change
         await loadEscrowData();
       } else {
@@ -549,45 +553,48 @@
             </button>
           </div>
           <p style="margin-top: 1.5rem; font-size: 0.875rem;">
-            <strong>Notification Details:</strong> You will receive an email notification when your escrow is approaching its inactivity period (less than 7 days remaining). This helps ensure you're aware before the escrow becomes executable.
+            <strong>Notification Details:</strong> You will receive an email notification when your escrow
+            is approaching its inactivity period (less than 7 days remaining). This helps ensure you're
+            aware before the escrow becomes executable.
           </p>
+        {:else if status === 0}
+          <div>
+            <p style="margin-bottom: 1rem;">Email notifications are not enabled for this escrow.</p>
+            <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+              <input
+                type="email"
+                bind:value={emailInput}
+                placeholder="your@email.com"
+                class="form-input"
+                style="flex: 1;"
+                disabled={enablingEmail}
+              />
+              <button
+                class="btn btn-primary"
+                on:click={handleEnableEmail}
+                disabled={enablingEmail || !emailInput.trim()}
+              >
+                {#if enablingEmail}
+                  Enabling...
+                {:else}
+                  Enable
+                {/if}
+              </button>
+            </div>
+            <p style="margin-top: 0.75rem; color: #6b7280; font-size: 0.875rem;">
+              You will receive an email notification when less than 7 days remain until the
+              inactivity period expires.
+            </p>
+          </div>
         {:else}
-          {#if status === 0}
-            <div>
-              <p style="margin-bottom: 1rem;">Email notifications are not enabled for this escrow.</p>
-              <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
-                <input
-                  type="email"
-                  bind:value={emailInput}
-                  placeholder="your@email.com"
-                  class="form-input"
-                  style="flex: 1;"
-                  disabled={enablingEmail}
-                />
-                <button
-                  class="btn btn-primary"
-                  on:click={handleEnableEmail}
-                  disabled={enablingEmail || !emailInput.trim()}
-                >
-                  {#if enablingEmail}
-                    Enabling...
-                  {:else}
-                    Enable
-                  {/if}
-                </button>
-              </div>
-              <p style="margin-top: 0.75rem; color: #6b7280; font-size: 0.875rem;">
-                You will receive an email notification when less than 7 days remain until the inactivity period expires.
-              </p>
-            </div>
-          {:else}
-            <div class="empty-state">
-              <p style="margin-bottom: 0.5rem;">Email notifications cannot be enabled for inactive escrows.</p>
-              <p style="color: #6b7280; font-size: 0.875rem;">
-                Only active escrows can be monitored for inactivity.
-              </p>
-            </div>
-          {/if}
+          <div class="empty-state">
+            <p style="margin-bottom: 0.5rem;">
+              Email notifications cannot be enabled for inactive escrows.
+            </p>
+            <p style="color: #6b7280; font-size: 0.875rem;">
+              Only active escrows can be monitored for inactivity.
+            </p>
+          </div>
         {/if}
       </div>
     </div>

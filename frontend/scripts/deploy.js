@@ -242,8 +242,9 @@ async function deployToFilecoin(files, network) {
  * Deploy to Storacha Network using CLI
  */
 async function deployToStoracha(files) {
-  const spaceDID = process.env.STORACHA_SPACE || 'did:key:z6MkfEgibWDdvs4EQQ1SX9RyhaDD5ZG9PbxAWpJknombANdj';
-  
+  const spaceDID =
+    process.env.STORACHA_SPACE || 'did:key:z6MkfEgibWDdvs4EQQ1SX9RyhaDD5ZG9PbxAWpJknombANdj';
+
   if (!spaceDID) {
     throw new Error(
       'STORACHA_SPACE must be set in frontend/.env\nSet your space DID (e.g., did:key:...)'
@@ -256,16 +257,15 @@ async function deployToStoracha(files) {
   // Use the build directory directly (Storacha CLI handles directories well)
   // No need to recreate - just upload the build directory as-is
   const buildDir = path.join(__dirname, '..', 'build');
-  
+
   if (!fs.existsSync(buildDir)) {
     throw new Error('Build directory not found. Run "npm run build" first.');
   }
-  
+
   console.log(`   Uploading build directory: ${buildDir}`);
   console.log('   Uploading via Storacha CLI...');
-  
+
   try {
-    
     // Find storacha command (try common locations)
     let storachaCmd = 'storacha';
     try {
@@ -278,7 +278,7 @@ async function deployToStoracha(files) {
         path.join(process.env.HOME || '', '.npm-global/bin/storacha'),
         path.join(process.env.HOME || '', '.local/bin/storacha'),
       ];
-      
+
       let found = false;
       for (const cmdPath of possiblePaths) {
         if (fs.existsSync(cmdPath)) {
@@ -287,54 +287,48 @@ async function deployToStoracha(files) {
           break;
         }
       }
-      
+
       if (!found) {
         throw new Error(
           `Storacha CLI not found in PATH. Install it with:\n` +
-          `  npm install -g @storacha/cli\n` +
-          `Then authenticate with:\n` +
-          `  storacha login your-email@example.com`
+            `  npm install -g @storacha/cli\n` +
+            `Then authenticate with:\n` +
+            `  storacha login your-email@example.com`
         );
       }
     }
-    
+
     // Set the current space first
     console.log('   Setting current space...');
     try {
-      execSync(
-        `"${storachaCmd}" space use ${spaceDID}`,
-        { 
-          encoding: 'utf-8', 
-          cwd: path.join(__dirname, '..'), 
-          stdio: 'pipe',
-          env: { ...process.env, PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin' }
-        }
-      );
+      execSync(`"${storachaCmd}" space use ${spaceDID}`, {
+        encoding: 'utf-8',
+        cwd: path.join(__dirname, '..'),
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin' },
+      });
     } catch (spaceError) {
       throw new Error(`Failed to set Storacha space: ${spaceError.message}`);
     }
-    
+
     // Use Storacha CLI to upload the build directory
     let output = '';
     try {
-      output = execSync(
-        `"${storachaCmd}" up "${buildDir}"`,
-        { 
-          encoding: 'utf-8', 
-          cwd: path.join(__dirname, '..'), 
-          stdio: 'pipe',
-          env: { ...process.env, PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin' }
-        }
-      );
+      output = execSync(`"${storachaCmd}" up "${buildDir}"`, {
+        encoding: 'utf-8',
+        cwd: path.join(__dirname, '..'),
+        stdio: 'pipe',
+        env: { ...process.env, PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin' },
+      });
     } catch (execError) {
       // execSync throws on non-zero exit, but we might still have output in stdout
       output = execError.stdout?.toString() || execError.output?.join('') || '';
       const stderr = execError.stderr?.toString() || '';
-      
+
       // Some CLIs output to stderr even on success, so check both
       const fullOutput = output + stderr;
       const cidMatch = fullOutput.match(/baf[a-z0-9]+/);
-      
+
       if (cidMatch) {
         // Found CID, use it even if command "failed"
         output = fullOutput;
@@ -343,38 +337,39 @@ async function deployToStoracha(files) {
         throw execError;
       }
     }
-    
+
     // Parse CID from output
     const cidMatch = output.match(/baf[a-z0-9]+/);
     const cid = cidMatch ? cidMatch[0] : null;
-    
+
     if (!cid) {
       throw new Error(
         `Could not parse CID from Storacha CLI output.\n` +
-        `Output: ${output}\n` +
-        `Make sure the upload succeeded.`
+          `Output: ${output}\n` +
+          `Make sure the upload succeeded.`
       );
     }
-    
+
     return {
       backend: 'storacha',
       directoryCID: cid,
       indexFileCID: `${cid}/index.html`,
     };
   } catch (error) {
-    
     // Check if it's a command not found error
-    if (error.message.includes('command not found') || 
-        error.message.includes('ENOENT') ||
-        (error.code === 'ENOENT' && error.syscall === 'spawn')) {
+    if (
+      error.message.includes('command not found') ||
+      error.message.includes('ENOENT') ||
+      (error.code === 'ENOENT' && error.syscall === 'spawn')
+    ) {
       throw new Error(
         `Storacha CLI not found. Install it with:\n` +
-        `  npm install -g @storacha/cli\n` +
-        `Then authenticate with:\n` +
-        `  storacha login your-email@example.com`
+          `  npm install -g @storacha/cli\n` +
+          `Then authenticate with:\n` +
+          `  storacha login your-email@example.com`
       );
     }
-    
+
     throw new Error(`Storacha upload failed: ${error.message}\n${error.stderr || ''}`);
   }
 }
