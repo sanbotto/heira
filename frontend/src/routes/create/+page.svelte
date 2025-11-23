@@ -22,9 +22,6 @@
     { value: 'WCBTC', label: 'WCBTC' },
   ];
 
-  // Maximum number of beneficiaries allowed (matches contract limit)
-  const MAX_BENEFICIARIES = 5;
-
   // Dynamic beneficiary rows
   let beneficiaryRows: Array<{
     address: string;
@@ -72,15 +69,8 @@
   // Check if all rows are filled (both address and percentage)
   $: allRowsFilled = beneficiaryRows.every(row => row.address && row.percentage > 0);
 
-  // Check if maximum beneficiaries limit is reached
-  $: maxBeneficiariesReached = beneficiaryRows.length >= MAX_BENEFICIARIES;
-
   // Add a new empty row
   function addRow() {
-    if (beneficiaryRows.length >= MAX_BENEFICIARIES) {
-      showErrorToast(`Maximum of ${MAX_BENEFICIARIES} beneficiaries allowed`);
-      return;
-    }
     beneficiaryRows = [...beneficiaryRows, { address: '', percentage: 0, chainId: 1 }];
   }
 
@@ -115,11 +105,6 @@
 
     if (validBeneficiaries.length === 0) {
       showErrorToast('Please add at least one beneficiary');
-      return;
-    }
-
-    if (validBeneficiaries.length > MAX_BENEFICIARIES) {
-      showErrorToast(`Maximum of ${MAX_BENEFICIARIES} beneficiaries allowed`);
       return;
     }
 
@@ -400,20 +385,9 @@
           </table>
         </div>
 
-        <button
-          class="btn btn-secondary"
-          on:click={addRow}
-          disabled={!allRowsFilled || maxBeneficiariesReached}
-          type="button"
-        >
+        <button class="btn btn-secondary" on:click={addRow} disabled={!allRowsFilled} type="button">
           Add Beneficiary
         </button>
-
-        {#if maxBeneficiariesReached}
-          <p class="form-help" style="color: var(--color-text-muted); margin-top: 0.5rem;">
-            Maximum of {MAX_BENEFICIARIES} beneficiaries reached
-          </p>
-        {/if}
 
         <p class="form-help" class:total-error={isTotalOver100}>
           Total: {totalPercentage}%

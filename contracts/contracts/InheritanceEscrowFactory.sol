@@ -10,10 +10,6 @@ import "./libraries/ENSResolver.sol";
  * @dev Allows users to create their own escrow contracts
  */
 contract InheritanceEscrowFactory {
-    // ASCII character constants for hex parsing
-    uint8 private constant ASCII_ZERO_OFFSET = 0x30;
-    uint8 private constant ASCII_X_LOWERCASE = 0x78;
-
     // Array of all deployed escrow contracts
     address[] public escrows;
 
@@ -111,7 +107,7 @@ contract InheritanceEscrowFactory {
             return address(0);
         }
 
-        if (addressBytes[0] != ASCII_ZERO_OFFSET || addressBytes[1] != ASCII_X_LOWERCASE) {
+        if (addressBytes[0] != 0x30 || addressBytes[1] != 0x78) {
             // "0x"
             return address(0);
         }
@@ -122,9 +118,9 @@ contract InheritanceEscrowFactory {
             uint8 char = uint8(addressBytes[i]);
             uint8 value;
 
-            if (char >= ASCII_ZERO_OFFSET && char <= 0x39) {
+            if (char >= 0x30 && char <= 0x39) {
                 // '0'-'9'
-                value = char - ASCII_ZERO_OFFSET;
+                value = char - 0x30;
             } else if (char >= 0x41 && char <= 0x46) {
                 // 'A'-'F'
                 value = char - 0x37;
