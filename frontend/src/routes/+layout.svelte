@@ -32,7 +32,7 @@
       <nav>
         <div class="nav-brand">
           <a href="/" aria-label="Heira Home">
-            <img src="/logo.png" alt="Heira Logo" class="logo-img" />
+            <img src="/heira.png" alt="Heira Logo" class="logo-img" />
             <h1 class="logo">Heira</h1>
             <span class="beta-badge">BETA</span>
           </a>
