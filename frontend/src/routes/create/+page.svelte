@@ -212,7 +212,7 @@
         factoryAddress,
         {
           mainWallet: mainWalletToUse,
-          inactivityPeriod: inactivityPeriodSeconds,
+          inactivityPeriod: inactivityPerioVITE_BACKEND_API_URL
           beneficiaries: beneficiariesToUse,
           includedTokens: includedTokens.length > 0 ? includedTokens : undefined,
           swapTokensToUSDC: swapTokensToUSDC,
