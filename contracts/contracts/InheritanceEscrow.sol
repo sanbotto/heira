@@ -40,6 +40,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     // Beneficiaries
     Beneficiary[] public beneficiaries;
     uint256 public constant BASIS_POINTS = 1e4;
+    uint256 public constant MAX_BENEFICIARIES = 5;
 
     // Chain IDs
     uint256 private constant CITREA_TESTNET_CHAIN_ID = 5115;
@@ -129,6 +130,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         require(_recipient != address(0), "Invalid recipient");
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
+        require(beneficiaries.length < MAX_BENEFICIARIES, "Maximum beneficiaries reached");
 
         if (_shouldSwap) {
             require(_targetToken != address(0), "Invalid target token");
@@ -174,6 +176,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
         require(status == Status.Active, "Contract is inactive");
+        require(beneficiaries.length < MAX_BENEFICIARIES, "Maximum beneficiaries reached");
 
         if (_shouldSwap) {
             require(_targetToken != address(0), "Invalid target token");
@@ -281,6 +284,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             "Array length mismatch"
         );
         require(status == Status.Active, "Contract is inactive");
+        require(
+            beneficiaries.length + _recipients.length <= MAX_BENEFICIARIES,
+            "Maximum beneficiaries exceeded"
+        );
 
         for (uint256 i = 0; i < _recipients.length; i++) {
             require(_recipients[i] != address(0), "Invalid recipient");
