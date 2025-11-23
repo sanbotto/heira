@@ -10,7 +10,8 @@ module.exports = {
         enabled: true,
         runs: 200
       },
-      viaIR: false
+      viaIR: false,
+      evmVersion: "paris"
     }
   },
   networks: {
