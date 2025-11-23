@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { verifyEscrowRouter } from "./routes/verify-escrow.js";
+import { pricesRouter } from "./routes/prices.js";
 import { createKeeperFromEnv } from "./services/keeper.js";
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/verify-escrow", verifyEscrowRouter);
+app.use("/api/prices", pricesRouter);
 
 // Health check
 app.get("/health", (req, res) => {
