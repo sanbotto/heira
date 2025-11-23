@@ -32,6 +32,12 @@ app.use("/api/prices", pricesRouter);
 
 // Health check
 app.get("/health", (req, res) => {
+  // Prevent caching of health check responses
+  res.set({
+    "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Pragma": "no-cache",
+    "Expires": "0",
+  });
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
