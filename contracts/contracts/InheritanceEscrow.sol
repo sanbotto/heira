@@ -877,6 +877,8 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param tokenAddress Token to distribute (zero address for native ETH)
      * @param recipient Beneficiary address
      * @param amount Amount to distribute
+     * @dev Uses call() for ETH distributions to forward all available gas,
+     *      preventing failures with contracts that require more than 2300 gas
      */
     function _distributeToBeneficiary(
         address tokenAddress,
@@ -888,8 +890,10 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         }
 
         if (tokenAddress == address(0)) {
-            // Native ETH distribution
-            payable(recipient).transfer(amount);
+            // Native ETH distribution using call() to forward all available gas
+            // This prevents failures with contracts that need more than 2300 gas
+            (bool success, ) = payable(recipient).call{value: amount}("");
+            require(success, "ETH transfer failed");
         } else {
             // ERC20 distribution
             IERC20 token = IERC20(tokenAddress);
