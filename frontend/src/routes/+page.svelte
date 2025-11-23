@@ -1,3 +1,32 @@
+<script lang="ts">
+  import { theme } from '$lib/stores/theme';
+  import { onMount } from 'svelte';
+  import { browser } from '$app/environment';
+
+  function getEffectiveTheme(currentTheme: string) {
+    if (!browser) return 'light';
+    if (currentTheme === 'auto') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return currentTheme;
+  }
+
+  $: isDark = getEffectiveTheme($theme) === 'dark';
+
+  onMount(() => {
+    // Listen for system theme changes when in auto mode
+    if (browser) {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => {
+        // Trigger reactivity by accessing $theme
+        isDark = getEffectiveTheme($theme) === 'dark';
+      };
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  });
+</script>
+
 <div class="container">
   <h1>Welcome to Heira</h1>
   <p class="description">Automated and permissionless Web3 inheritance management.</p>
@@ -105,6 +134,39 @@
     </div>
   </div>
 </div>
+
+<section class="powered-by">
+  <h2 class="powered-by-title">Powered by</h2>
+  <div class="powered-by-logos">
+    <div class="logo-item">
+      <img src={isDark ? '/hardhat-logo-dark.svg' : '/hardhat-logo.svg'} alt="Hardhat" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/the-graph-dark.svg' : '/the-graph.svg'} alt="The Graph" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/ledger-dark.svg' : '/ledger.svg'} alt="Ledger" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/ens-dark.svg' : '/ens.svg'} alt="ENS" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/citrea-dark.svg' : '/citrea.svg'} alt="Citrea" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src="/filecoin.svg" alt="Filecoin" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/fluence-dark.svg' : '/fluence.svg'} alt="Fluence" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/nethermind-dark.svg' : '/nethermind.svg'} alt="Nethermind" class="logo-img" />
+    </div>
+    <div class="logo-item">
+      <img src={isDark ? '/keeperhub-dark.svg' : '/keeperhub.svg'} alt="KeeperHub" class="logo-img" />
+    </div>
+  </div>
+</section>
 
 <style>
   .container {
@@ -287,6 +349,70 @@
     .btn {
       width: 100%;
       text-align: center;
+    }
+  }
+
+  .powered-by {
+    max-width: 1000px;
+    margin: 4rem auto 2rem;
+    padding: 0 2rem;
+  }
+
+  .powered-by-title {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .powered-by-logos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    min-width: 140px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+  }
+
+  .logo-item:hover {
+    opacity: 1;
+  }
+
+  .logo-img {
+    max-width: 100%;
+    max-height: 60px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+
+  @media (max-width: 640px) {
+    .powered-by {
+      margin: 3rem auto 2rem;
+      padding: 0 1rem;
+    }
+
+    .powered-by-logos {
+      gap: 2rem;
+    }
+
+    .logo-item {
+      height: 50px;
+      min-width: 100px;
+    }
+
+    .logo-img {
+      max-height: 50px;
     }
   }
 </style>

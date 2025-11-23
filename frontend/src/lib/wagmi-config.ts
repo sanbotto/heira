@@ -27,7 +27,7 @@ export const citreaTestnet = {
       url: 'https://5115.testnet.routescan.io',
     },
   },
-  iconUrl: '/citrea-icon.svg',
+  iconUrl: '/citrea.svg',
   iconBackground: '#f0781b',
 } as const satisfies Chain;
 
