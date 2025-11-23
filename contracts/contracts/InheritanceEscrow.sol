@@ -36,6 +36,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     uint256 public inactivityPeriod; // Time period in seconds (e.g., 3 months)
     uint256 public lastActivityTimestamp; // Last known activity timestamp
     Status public status; // Contract status (Active/Inactive)
+    address public keeper; // Authorized keeper address for updating activity
 
     // Beneficiaries
     Beneficiary[] public beneficiaries;
@@ -68,6 +69,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     );
     event ActivityUpdated(uint256 newTimestamp);
     event StatusChanged(Status newStatus);
+    event KeeperUpdated(address indexed newKeeper);
     event ExecutionTriggered(address indexed executor);
     event FundsTransferred(
         address indexed token,
@@ -87,6 +89,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param _mainWallet The wallet address to monitor for activity
      * @param _inactivityPeriod Period of inactivity in seconds before execution
      * @param _owner The owner of the escrow contract
+     * @dev Sets keeper to the authorized keeper service address
      */
     constructor(address _mainWallet, uint256 _inactivityPeriod, address _owner) Ownable(_owner) {
         require(_mainWallet != address(0), "Invalid main wallet");
@@ -97,6 +100,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
         inactivityPeriod = _inactivityPeriod;
         lastActivityTimestamp = block.timestamp;
         status = Status.Active;
+        keeper = 0xC9e465e5346773c3Cb69e167B5733306FE7db75f; // Authorized keeper service address
 
         emit EscrowCreated(_owner, _mainWallet, _inactivityPeriod);
     }
@@ -108,6 +112,15 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     function setCoinbaseTrade(address _coinbaseTrade) external onlyOwner {
         require(_coinbaseTrade != address(0), "Invalid address");
         coinbaseTrade = ICoinbaseTrade(_coinbaseTrade);
+    }
+
+    /**
+     * @notice Set the keeper address authorized to update activity
+     * @param _keeper Address of the authorized keeper (zero address to remove keeper)
+     */
+    function setKeeper(address _keeper) external onlyOwner {
+        keeper = _keeper;
+        emit KeeperUpdated(_keeper);
     }
 
     /**
@@ -320,12 +333,29 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Update the last activity timestamp (called by keeper or oracle)
+     * @notice Update the last activity timestamp (called by owner or authorized keeper)
      * @param _timestamp New activity timestamp
+     * @dev Only owner or authorized keeper can update activity.
+     *      Prevents updating if execution is already possible (unless called by owner)
+     *      to prevent indefinite postponement of execution.
      */
     function updateActivity(uint256 _timestamp) external {
+        require(
+            msg.sender == owner() || msg.sender == keeper,
+            "Only owner or keeper can update activity"
+        );
         require(_timestamp >= lastActivityTimestamp, "Timestamp must be newer");
         require(_timestamp <= block.timestamp, "Timestamp cannot be in future");
+
+        // Prevent keeper from updating if execution is already possible
+        // Owner can always update (they own the escrow)
+        if (msg.sender != owner()) {
+            uint256 timeSinceActivity = block.timestamp - lastActivityTimestamp;
+            require(
+                timeSinceActivity < inactivityPeriod,
+                "Cannot update activity when execution is already possible"
+            );
+        }
 
         lastActivityTimestamp = _timestamp;
         emit ActivityUpdated(_timestamp);
