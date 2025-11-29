@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ICoinbaseTrade.sol";
-import "./libraries/ENSResolver.sol";
 
 /**
  * @title InheritanceEscrow
@@ -23,7 +22,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
     }
 
     struct Beneficiary {
-        address recipient;
+        address recipient; // Recipient address
         uint256 percentage; // Basis points (10000 = 100%)
         uint256 chainId; // Chain ID where recipient should receive funds
         address tokenAddress; // Token to receive (zero address for native ETH)
@@ -110,6 +109,8 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
      * @param _tokenAddress Token to receive (zero address for native ETH)
      * @param _shouldSwap Whether to swap before sending
      * @param _targetToken Target token if swapping (zero address if not swapping)
+     * @dev Note: The frontend resolves ENS names to addresses before calling this function.
+     *      The address provided here may have been resolved from an ENS name.
      */
     function addBeneficiary(
         address _recipient,
@@ -146,106 +147,6 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
             _shouldSwap,
             _targetToken
         );
-    }
-
-    /**
-     * @notice Add a beneficiary with distribution percentage (supports ENS names)
-     * @param _recipient ENS name (e.g., "vitalik.eth") or address as hex string
-     * @param _percentage Distribution percentage in basis points
-     * @param _chainId Chain ID where recipient should receive funds
-     * @param _tokenAddress Token to receive (zero address for native ETH)
-     * @param _shouldSwap Whether to swap before sending
-     * @param _targetToken Target token if swapping (zero address if not swapping)
-     */
-    function addBeneficiaryENS(
-        string memory _recipient,
-        uint256 _percentage,
-        uint256 _chainId,
-        address _tokenAddress,
-        bool _shouldSwap,
-        address _targetToken
-    ) external onlyOwner {
-        require(_percentage > 0 && _percentage <= BASIS_POINTS, "Invalid percentage");
-        require(status == Status.Active, "Contract is inactive");
-
-        if (_shouldSwap) {
-            require(_targetToken != address(0), "Invalid target token");
-        }
-
-        address recipientAddress;
-
-        // Check if it's an ENS name
-        if (ENSResolver.isENSName(_recipient)) {
-            recipientAddress = ENSResolver.resolve(_recipient);
-            require(recipientAddress != address(0), "ENS name resolution failed.");
-        } else {
-            // Try to parse as address (hex string)
-            recipientAddress = _parseAddress(_recipient);
-            require(recipientAddress != address(0), "Invalid address format");
-        }
-
-        beneficiaries.push(
-            Beneficiary({
-                recipient: recipientAddress,
-                percentage: _percentage,
-                chainId: _chainId,
-                tokenAddress: _tokenAddress,
-                shouldSwap: _shouldSwap,
-                targetToken: _targetToken
-            })
-        );
-
-        emit BeneficiaryAdded(
-            recipientAddress,
-            _percentage,
-            _chainId,
-            _tokenAddress,
-            _shouldSwap,
-            _targetToken
-        );
-    }
-
-    /**
-     * @notice Parse a hex string to an address
-     * @param _addressString Hex string representation of address
-     * @return Parsed address
-     */
-    function _parseAddress(string memory _addressString) internal pure returns (address) {
-        bytes memory addressBytes = bytes(_addressString);
-
-        // Check if it starts with "0x" and has correct length (42 chars: 0x + 40 hex)
-        if (addressBytes.length != 42) {
-            return address(0);
-        }
-
-        if (addressBytes[0] != 0x30 || addressBytes[1] != 0x78) {
-            // "0x"
-            return address(0);
-        }
-
-        // Parse hex string to address
-        uint160 result = 0;
-        for (uint256 i = 2; i < 42; i++) {
-            uint8 char = uint8(addressBytes[i]);
-            uint8 value;
-
-            if (char >= 0x30 && char <= 0x39) {
-                // '0'-'9'
-                value = char - 0x30;
-            } else if (char >= 0x41 && char <= 0x46) {
-                // 'A'-'F'
-                value = char - 0x37;
-            } else if (char >= 0x61 && char <= 0x66) {
-                // 'a'-'f'
-                value = char - 0x57;
-            } else {
-                return address(0);
-            }
-
-            result = result * 16 + value;
-        }
-
-        return address(result);
     }
 
     /**
@@ -766,6 +667,9 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                 continue;
             }
 
+            // Recipient address
+            address recipientAddress = beneficiary.recipient;
+
             // Swap if beneficiary wants swap
             if (
                 beneficiary.shouldSwap &&
@@ -781,12 +685,12 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                 // Distribute swapped tokens
                 _distributeToBeneficiary(
                     beneficiary.targetToken,
-                    beneficiary.recipient,
+                    recipientAddress,
                     swappedAmount
                 );
             } else {
                 // Distribute directly without swap
-                _distributeToBeneficiary(tokenAddress, beneficiary.recipient, beneficiaryAmount);
+                _distributeToBeneficiary(tokenAddress, recipientAddress, beneficiaryAmount);
             }
         }
     }

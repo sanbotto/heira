@@ -623,7 +623,9 @@
               <tbody>
                 {#each beneficiaries as beneficiary}
                   <tr>
-                    <td class="text-mono">{beneficiary.recipient}</td>
+                    <td class="text-mono">
+                      {beneficiary.recipient}
+                    </td>
                     <td class="text-center">{formatPercentage(beneficiary.percentage)}</td>
                     <td class="text-center">{getChainName(beneficiary.chainId)}</td>
                     <td class="text-center token-distribution">

@@ -13,6 +13,7 @@ import {
   encodeFunctionData,
   type MulticallReturnType,
 } from 'viem';
+import { resolveEnsName } from './ens';
 
 const FACTORY_ABI = [
   {
@@ -21,16 +22,6 @@ const FACTORY_ABI = [
       { name: '_inactivityPeriod', type: 'uint256' },
     ],
     name: 'createEscrow',
-    outputs: [{ name: 'escrowAddress', type: 'address' }],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: '_mainWallet', type: 'string' },
-      { name: '_inactivityPeriod', type: 'uint256' },
-    ],
-    name: 'createEscrowENS',
     outputs: [{ name: 'escrowAddress', type: 'address' }],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -59,20 +50,6 @@ const ESCROW_ABI = [
       { name: '_targetToken', type: 'address' },
     ],
     name: 'addBeneficiary',
-    outputs: [],
-    stateMutability: 'nonpayable',
-    type: 'function',
-  },
-  {
-    inputs: [
-      { name: '_recipient', type: 'string' },
-      { name: '_percentage', type: 'uint256' },
-      { name: '_chainId', type: 'uint256' },
-      { name: '_tokenAddress', type: 'address' },
-      { name: '_shouldSwap', type: 'bool' },
-      { name: '_targetToken', type: 'address' },
-    ],
-    name: 'addBeneficiaryENS',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -370,7 +347,9 @@ export async function createEscrow(
     throw new Error('Invalid inactivity period: must be greater than 0');
   }
 
-  // Validate mainWallet input
+  // Resolve ENS names to addresses before creating escrow
+  let resolvedMainWallet: Address;
+
   if (typeof config.mainWallet === 'string') {
     const mainWalletStr = config.mainWallet.trim();
 
@@ -388,6 +367,17 @@ export async function createEscrow(
           `ENS resolution is not supported on chain ${chainId}. Please use a plain Ethereum address (0x...) instead.`
         );
       }
+
+      // Resolve ENS name to address
+      onProgress?.('Resolving ENS name...', 'info');
+      const resolvedAddress = await resolveEnsName(mainWalletStr);
+      if (!resolvedAddress) {
+        throw new Error(
+          `Failed to resolve ENS name "${mainWalletStr}". Please verify the ENS name exists and is correct.`
+        );
+      }
+      resolvedMainWallet = resolvedAddress;
+      onProgress?.(`✅ Resolved "${mainWalletStr}" to ${resolvedAddress}`, 'success');
     } else {
       // Should be a hex address
       if (!mainWalletStr.startsWith('0x') || mainWalletStr.length !== 42) {
@@ -402,17 +392,16 @@ export async function createEscrow(
           'Invalid address format. Address must contain only hexadecimal characters.'
         );
       }
+
+      resolvedMainWallet = mainWalletStr as Address;
     }
   } else {
     // Should be an Address type
     if (!config.mainWallet || config.mainWallet === '0x0000000000000000000000000000000000000000') {
       throw new Error('Invalid main wallet address: cannot be zero address');
     }
+    resolvedMainWallet = config.mainWallet;
   }
-
-  // Use ENS function if mainWallet is a string (ENS name), otherwise use address function
-  const isMainWalletENS =
-    typeof config.mainWallet === 'string' && config.mainWallet.endsWith('.eth');
 
   // Simulate the transaction first to catch revert reasons
   // Try multiple methods to get the revert reason
@@ -423,8 +412,8 @@ export async function createEscrow(
       account,
       address: factoryAddress,
       abi: FACTORY_ABI,
-      functionName: isMainWalletENS ? 'createEscrowENS' : 'createEscrow',
-      args: [config.mainWallet, BigInt(config.inactivityPeriod)],
+      functionName: 'createEscrow',
+      args: [resolvedMainWallet, BigInt(config.inactivityPeriod)],
     });
   } catch (error: any) {
     simulationError = error;
@@ -433,8 +422,8 @@ export async function createEscrow(
     try {
       const functionData = encodeFunctionData({
         abi: FACTORY_ABI,
-        functionName: isMainWalletENS ? 'createEscrowENS' : 'createEscrow',
-        args: [config.mainWallet, BigInt(config.inactivityPeriod)],
+        functionName: 'createEscrow',
+        args: [resolvedMainWallet, BigInt(config.inactivityPeriod)],
       });
 
       // Try call which sometimes provides better error details
@@ -455,8 +444,8 @@ export async function createEscrow(
       try {
         const functionData = encodeFunctionData({
           abi: FACTORY_ABI,
-          functionName: isMainWalletENS ? 'createEscrowENS' : 'createEscrow',
-          args: [config.mainWallet, BigInt(config.inactivityPeriod)],
+          functionName: 'createEscrow',
+          args: [resolvedMainWallet, BigInt(config.inactivityPeriod)],
         });
 
         await publicClient.estimateGas({
@@ -547,7 +536,6 @@ export async function createEscrow(
     ) {
       // The RPC didn't provide the actual revert reason
       // Provide helpful context based on what we know
-      const inputType = isMainWalletENS ? 'ENS name' : 'address';
       const chainName =
         chainId === 1
           ? 'Ethereum mainnet'
@@ -562,16 +550,15 @@ export async function createEscrow(
       revertReason =
         `Transaction reverted for an unknown reason (RPC provider limitation).\n\n` +
         `Based on your inputs, possible causes:\n` +
-        `- ${isMainWalletENS ? `ENS name "${config.mainWallet}" may not exist or be resolvable on ${chainName}` : 'Invalid address format'}\n` +
+        `- Invalid address format\n` +
         `- Invalid inactivity period: ${config.inactivityPeriod} seconds\n` +
         `- Contract validation error\n\n` +
         `Debugging steps:\n` +
-        `1. ${isMainWalletENS ? `Try using a plain Ethereum address (0x...) instead of the ENS name` : 'Verify the address is correct'}\n` +
-        `2. Check if the ENS name exists: https://app.ens.domains/name/${isMainWalletENS ? config.mainWallet : 'your-name.eth'}\n` +
-        `3. Verify the factory contract address: ${factoryAddress}\n` +
-        `4. Check the transaction on a block explorer to see the actual revert reason\n\n` +
+        `1. Verify the address is correct: ${resolvedMainWallet}\n` +
+        `2. Verify the factory contract address: ${factoryAddress}\n` +
+        `3. Check the transaction on a block explorer to see the actual revert reason\n\n` +
         `Your inputs:\n` +
-        `- Main wallet: ${config.mainWallet}\n` +
+        `- Main wallet: ${resolvedMainWallet}${typeof config.mainWallet === 'string' && config.mainWallet.endsWith('.eth') ? ` (resolved from ${config.mainWallet})` : ''}\n` +
         `- Inactivity period: ${config.inactivityPeriod} seconds\n` +
         `- Chain: ${chainName} (${chainId})`;
     }
@@ -584,8 +571,8 @@ export async function createEscrow(
     account,
     address: factoryAddress,
     abi: FACTORY_ABI,
-    functionName: isMainWalletENS ? 'createEscrowENS' : 'createEscrow',
-    args: [config.mainWallet, BigInt(config.inactivityPeriod)],
+    functionName: 'createEscrow',
+    args: [resolvedMainWallet, BigInt(config.inactivityPeriod)],
   });
 
   onProgress?.('Transaction sent! Waiting for confirmation...', 'info');
@@ -599,8 +586,8 @@ export async function createEscrow(
         account,
         address: factoryAddress,
         abi: FACTORY_ABI,
-        functionName: isMainWalletENS ? 'createEscrowENS' : 'createEscrow',
-        args: [config.mainWallet, BigInt(config.inactivityPeriod)],
+        functionName: 'createEscrow',
+        args: [resolvedMainWallet, BigInt(config.inactivityPeriod)],
       });
     } catch (simError: any) {
       const revertReason =
@@ -614,10 +601,9 @@ export async function createEscrow(
     // If simulation didn't throw, provide generic error
     throw new Error(
       'Transaction failed (reverted). Common causes:\n' +
-        '- ENS name resolution failed (check if ENS name exists and is resolvable on this chain)\n' +
-        '- Invalid address format\n' +
-        '- Invalid inactivity period\n' +
-        `Transaction hash: ${hash}`
+      '- Invalid address format\n' +
+      '- Invalid inactivity period\n' +
+      `Transaction hash: ${hash}`
     );
   }
 
@@ -663,9 +649,9 @@ export async function createEscrow(
   if (!escrowAddress) {
     throw new Error(
       'Failed to find EscrowCreated event in transaction receipt. ' +
-        'The transaction may have succeeded but the event was not emitted. ' +
-        `Transaction hash: ${hash}. ` +
-        'Please verify the factory contract address is correct.'
+      'The transaction may have succeeded but the event was not emitted. ' +
+      `Transaction hash: ${hash}. ` +
+      'Please verify the factory contract address is correct.'
     );
   }
 
@@ -675,9 +661,11 @@ export async function createEscrow(
   console.log('📝 Configuring escrow at:', escrowAddr);
 
   // Configure beneficiaries
-  // Separate addresses from ENS names - use batch for addresses, individual calls for ENS
+  // Resolve all ENS names to addresses before adding beneficiaries
   if (config.beneficiaries.length > 0) {
-    const addressBeneficiaries: Array<{
+    onProgress?.('Resolving beneficiary ENS names...', 'info');
+
+    const resolvedBeneficiaries: Array<{
       recipient: Address;
       percentage: number;
       chainId: number;
@@ -685,71 +673,66 @@ export async function createEscrow(
       shouldSwap?: boolean;
       targetToken?: Address;
     }> = [];
-    const ensBeneficiaries: Array<{
-      recipient: string;
-      percentage: number;
-      chainId: number;
-      tokenAddress?: Address;
-      shouldSwap?: boolean;
-      targetToken?: Address;
-    }> = [];
 
-    // Separate beneficiaries into addresses and ENS names
-    for (const beneficiary of config.beneficiaries) {
-      const isENS =
-        typeof beneficiary.recipient === 'string' && beneficiary.recipient.endsWith('.eth');
+    // Resolve all beneficiaries (ENS names or addresses) to addresses
+    for (let i = 0; i < config.beneficiaries.length; i++) {
+      const beneficiary = config.beneficiaries[i];
+      let resolvedRecipient: Address;
 
-      if (isENS) {
-        ensBeneficiaries.push({
-          recipient: beneficiary.recipient as string,
-          percentage: beneficiary.percentage,
-          chainId: beneficiary.chainId,
-          tokenAddress: beneficiary.tokenAddress,
-          shouldSwap: beneficiary.shouldSwap,
-          targetToken: beneficiary.targetToken,
-        });
+      if (typeof beneficiary.recipient === 'string' && beneficiary.recipient.endsWith('.eth')) {
+        // Resolve ENS name to address
+        const resolvedAddress = await resolveEnsName(beneficiary.recipient);
+        if (!resolvedAddress) {
+          throw new Error(
+            `Failed to resolve ENS name "${beneficiary.recipient}" for beneficiary ${i + 1}. Please verify the ENS name exists and is correct.`
+          );
+        }
+        resolvedRecipient = resolvedAddress;
+        onProgress?.(`✅ Resolved "${beneficiary.recipient}" to ${resolvedAddress}`, 'success');
       } else {
-        const address =
+        // Already an address
+        resolvedRecipient =
           typeof beneficiary.recipient === 'string'
             ? (beneficiary.recipient as Address)
             : beneficiary.recipient;
-        addressBeneficiaries.push({
-          recipient: address,
-          percentage: beneficiary.percentage,
-          chainId: beneficiary.chainId,
-          tokenAddress: beneficiary.tokenAddress,
-          shouldSwap: beneficiary.shouldSwap,
-          targetToken: beneficiary.targetToken,
-        });
       }
+
+      resolvedBeneficiaries.push({
+        recipient: resolvedRecipient,
+        percentage: beneficiary.percentage,
+        chainId: beneficiary.chainId,
+        tokenAddress: beneficiary.tokenAddress,
+        shouldSwap: beneficiary.shouldSwap,
+        targetToken: beneficiary.targetToken,
+      });
     }
 
-    // Batch add address-based beneficiaries in a single transaction (with token configs)
-    if (addressBeneficiaries.length > 0) {
-      const recipients = addressBeneficiaries.map(b => b.recipient);
-      const percentages = addressBeneficiaries.map(b => BigInt(Math.floor(b.percentage * 100)));
-      const chainIds = addressBeneficiaries.map(b => BigInt(b.chainId));
+    // Use batch add for all beneficiaries (all are now addresses)
+    if (resolvedBeneficiaries.length > 0) {
+      const recipients = resolvedBeneficiaries.map(b => b.recipient);
+      const percentages = resolvedBeneficiaries.map(b => BigInt(Math.floor(b.percentage * 100)));
+      const chainIds = resolvedBeneficiaries.map(b => BigInt(b.chainId));
 
       // Get token swap configs from beneficiaries
-      const tokenAddresses = addressBeneficiaries.map(
+      const tokenAddresses = resolvedBeneficiaries.map(
         b => b.tokenAddress || ('0x0000000000000000000000000000000000000000' as Address)
       );
-      const shouldSwaps = addressBeneficiaries.map(b => b.shouldSwap || false);
-      const targetTokens = addressBeneficiaries.map((b, i) => {
+      const shouldSwaps = resolvedBeneficiaries.map(b => b.shouldSwap || false);
+      const targetTokens = resolvedBeneficiaries.map((b, i) => {
         const targetToken =
           b.targetToken || ('0x0000000000000000000000000000000000000000' as Address);
         // Validate: if shouldSwap is true, targetToken must not be zero address
         if (b.shouldSwap && targetToken === '0x0000000000000000000000000000000000000000') {
           throw new Error(
             `Beneficiary ${i + 1} (${b.recipient}) has shouldSwap=true but targetToken is not set. ` +
-              `Please ensure targetToken is configured when enabling swaps.`
+            `Please ensure targetToken is configured when enabling swaps.`
           );
         }
         return targetToken;
       });
 
       console.log(
-        `📝 Adding ${addressBeneficiaries.length} address-based beneficiaries with token configs to escrow:`,
+        `📝 Adding ${resolvedBeneficiaries.length} beneficiaries to escrow:`,
         escrowAddr
       );
       console.log('Beneficiary data:', {
@@ -816,8 +799,8 @@ export async function createEscrow(
       ) {
         validationErrors.push(
           `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+          `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+          `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
         );
       }
 
@@ -1141,34 +1124,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.estimateGas({
               account,
@@ -1228,34 +1211,34 @@ export async function createEscrow(
             // Try to call the contract directly to get revert reason
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.call({
               to: escrowAddr,
@@ -1334,34 +1317,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             const result = await publicClient.call({
               to: escrowAddr,
@@ -1452,7 +1435,7 @@ export async function createEscrow(
         throw new Error(errorParts.join('. '));
       }
 
-      onProgress?.(`Adding ${addressBeneficiaries.length} beneficiaries... Please sign.`, 'info');
+      onProgress?.(`Adding ${resolvedBeneficiaries.length} beneficiaries... Please sign.`, 'info');
 
       // Log the exact values being sent (converted to strings for logging)
       console.log('Sending transaction with values:', {
@@ -1562,8 +1545,8 @@ export async function createEscrow(
         ) {
           validationErrors.push(
             `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-              `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-              `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
           );
         }
 
@@ -1629,75 +1612,8 @@ export async function createEscrow(
 
         throw new Error(
           `Failed to add beneficiaries: ${errorMessage}. ` +
-            `Transaction hash: ${beneficiaryHash}. ` +
-            `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
-        );
-      }
-    }
-
-    // Add ENS-based beneficiaries individually (contract handles ENS resolution)
-    for (const beneficiary of ensBeneficiaries) {
-      console.log(`📝 Adding ENS beneficiary ${beneficiary.recipient} to escrow:`, escrowAddr);
-      onProgress?.(`Adding ENS beneficiary ${beneficiary.recipient}... Please sign.`, 'info');
-      const ensHash = await walletClient.writeContract({
-        account,
-        address: escrowAddr,
-        abi: ESCROW_ABI,
-        functionName: 'addBeneficiaryENS',
-        args: [
-          beneficiary.recipient,
-          BigInt(Math.floor(beneficiary.percentage * 100)), // Convert to basis points
-          BigInt(beneficiary.chainId),
-          beneficiary.tokenAddress || ('0x0000000000000000000000000000000000000000' as Address),
-          beneficiary.shouldSwap || false,
-          beneficiary.targetToken || ('0x0000000000000000000000000000000000000000' as Address),
-        ],
-      });
-      console.log('   Transaction hash:', ensHash);
-      onProgress?.('Waiting for ENS beneficiary transaction confirmation...', 'info');
-      const ensReceipt = await publicClient.waitForTransactionReceipt({ hash: ensHash });
-
-      // Check if transaction succeeded
-      if (ensReceipt.status === 'reverted') {
-        // Try to get the revert reason by simulating the call
-        let revertReason = 'Transaction reverted';
-        try {
-          await publicClient.simulateContract({
-            account,
-            address: escrowAddr,
-            abi: ESCROW_ABI,
-            functionName: 'addBeneficiaryENS',
-            args: [
-              beneficiary.recipient,
-              BigInt(Math.floor(beneficiary.percentage * 100)),
-              BigInt(beneficiary.chainId),
-              beneficiary.tokenAddress || ('0x0000000000000000000000000000000000000000' as Address),
-              beneficiary.shouldSwap || false,
-              beneficiary.targetToken || ('0x0000000000000000000000000000000000000000' as Address),
-            ],
-          });
-        } catch (simError: any) {
-          revertReason =
-            simError?.cause?.reason ||
-            simError?.shortMessage ||
-            simError?.message ||
-            'Unknown revert reason';
-        }
-        // Get explorer URL for this chain
-        const explorerUrls: Record<number, string> = {
-          1: 'https://etherscan.io/tx/',
-          11155111: 'https://sepolia.etherscan.io/tx/',
-          8453: 'https://basescan.org/tx/',
-          84532: 'https://sepolia.basescan.org/tx/',
-          5115: 'https://explorer.testnet.citrea.xyz/tx/',
-        };
-        const explorerUrl = explorerUrls[chainId] || 'https://etherscan.io/tx/';
-        const explorerName = getExplorerName(chainId);
-
-        throw new Error(
-          `Failed to add ENS beneficiary ${beneficiary.recipient}: ${revertReason}. ` +
-            `Transaction hash: ${ensHash}. ` +
-            `Please check the transaction on ${explorerName} for details: ${explorerUrl}${ensHash}`
+          `Transaction hash: ${beneficiaryHash}. ` +
+          `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
         );
       }
     }
@@ -1705,12 +1621,8 @@ export async function createEscrow(
 
   console.log('✅ Escrow configuration complete. Final address:', escrowAddr);
 
-  // Use the resolved main wallet address from the event (handles ENS resolution)
-  const resolvedMainWalletAddress =
-    resolvedMainWallet ||
-    (typeof config.mainWallet === 'string' && config.mainWallet.startsWith('0x')
-      ? (config.mainWallet as Address)
-      : (config.mainWallet as Address));
+  // Use the resolved main wallet address (already resolved from ENS if needed)
+  const resolvedMainWalletAddress = resolvedMainWallet;
 
   // Request token approvals on all relevant chains if mainWallet matches connected account
   if (resolvedMainWalletAddress.toLowerCase() === account.toLowerCase()) {
@@ -1786,7 +1698,7 @@ export async function createEscrow(
     const tokenList = config.includedTokens?.join(', ') || 'USDC';
     onProgress?.(
       `⚠️ Please ensure ${tokenList} is approved for this escrow on ${chainNames}. ` +
-        `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
+      `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
       'info'
     );
   }
@@ -2157,7 +2069,7 @@ export async function requestUSDCApprovalsOnAllChains(
           // If public client works, the issue is likely wallet connection
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
-              `Current chain may not match.`
+            `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2306,7 +2218,7 @@ export async function requestTokenApprovalsOnAllChains(
           const publicClient = getPublicClient(chainId);
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve tokens. ` +
-              `Current chain may not match.`
+            `Current chain may not match.`
           );
         } catch {
           throw new Error(
