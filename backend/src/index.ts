@@ -48,22 +48,22 @@ app.get("/api/keeper/status", (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Backend server running on port ${PORT}`);
+  console.log(`Backend server running on port ${PORT}`);
 
   // Start keeper if enabled
   if (ENABLE_KEEPER) {
     const keeper = createKeeperFromEnv();
     if (keeper) {
-      console.log("🔍 Starting keeper service...");
+      console.log("Starting keeper service...");
       keeper.start();
     } else {
       console.warn(
-        "⚠️  Keeper service not configured. Set FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, and/or FACTORY_ADDRESS_CITREA environment variables along with corresponding RPC URLs.",
+        "Keeper service not configured. Set FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, and/or FACTORY_ADDRESS_CITREA environment variables along with corresponding RPC URLs.",
       );
     }
   } else {
     console.log(
-      "ℹ️  Keeper service disabled. Set ENABLE_KEEPER=true to enable.",
+      "Keeper service disabled. Set ENABLE_KEEPER=true to enable.",
     );
   }
 });

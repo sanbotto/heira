@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-## 🚀 Get Started in 5 Minutes
+## Get Started in 5 Minutes
 
 ### 1. Install Dependencies
 
@@ -56,6 +56,6 @@ npm run dev
 
 Open `http://localhost:5173` in your browser and connect your wallet!
 
-## 📚 More Details
+## More Details
 
 See [TESTING.md](./TESTING.md) for comprehensive testing and deployment instructions.

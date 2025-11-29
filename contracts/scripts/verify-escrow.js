@@ -39,7 +39,7 @@ async function main() {
       console.log(`View on explorer: ${getExplorerUrl(network, contractAddress)}`);
       process.exit(0);
     } else if (isBlockscout && error.message.includes("Unable to verify")) {
-      console.log("\n⚠️  Blockscout verification failed, trying Sourcify...");
+      console.log("\nBlockscout verification failed, trying Sourcify...");
       try {
         const inactivityPeriodBigInt = BigInt(inactivityPeriod);
         await hre.run("verify:verify", {
@@ -51,7 +51,7 @@ async function main() {
         console.log(`View on explorer: ${getExplorerUrl(network, contractAddress)}`);
         process.exit(0);
       } catch (sourcifyError) {
-        console.log("\n⚠️  Verification failed on both Blockscout and Sourcify.");
+        console.log("\nVerification failed on both Blockscout and Sourcify.");
         console.log("This is common with Blockscout - the contract may still be verifiable manually.");
         console.log(`View on explorer: ${getExplorerUrl(network, contractAddress)}`);
         console.log("Note: Contract functionality is not affected by verification status.");

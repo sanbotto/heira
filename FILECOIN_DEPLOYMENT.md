@@ -81,7 +81,7 @@ The deployment script:
 After successful deployment, you'll see:
 
 ```
-🎉 Deployment successful!
+Deployment successful!
 Network: calibration
 Manifest CID: bafybe...
 Index file CID: bafybe...
@@ -170,7 +170,7 @@ The deployment uses `PRIVATE_KEY` from `frontend/.env` that you use for smart co
 
 ## Security Notes
 
-⚠️ **Important**: 
+**Important**: 
 - Never commit your `PRIVATE_KEY` to git
 - Use a dedicated deployment wallet if possible
 - Only fund the wallet with necessary tokens

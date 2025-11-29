@@ -100,7 +100,7 @@ function collectFiles(dir, basePath = '', options = {}) {
             }
 
             console.log(
-              `   📏 Padded ${fileRelativePath} from ${originalSize} to ${content.length} bytes`
+              `   Padded ${fileRelativePath} from ${originalSize} to ${content.length} bytes`
             );
           }
 
@@ -130,7 +130,7 @@ async function computeIPFSCID(content) {
     const cid = CID.create(1, 0x55, hash); // 0x55 is raw codec
     return cid.toString();
   } catch (error) {
-    console.warn(`   ⚠️  Could not compute IPFS CID: ${error.message}`);
+    console.warn(`   Could not compute IPFS CID: ${error.message}`);
     return null;
   }
 }
@@ -153,7 +153,7 @@ async function deployToFilecoin(files, network) {
     throw new Error('PRIVATE_KEY must be set in frontend/.env');
   }
 
-  console.log('🔧 Initializing Synapse SDK...');
+  console.log('Initializing Synapse SDK...');
   const synapse = await Synapse.create({
     privateKey: process.env.PRIVATE_KEY,
     rpcURL: RPC_URL,
@@ -183,13 +183,13 @@ async function deployToFilecoin(files, network) {
     if (errorMsg.includes('already approved') || errorMsg.includes('allowance')) {
       console.log('✅ Payment already set up\n');
     } else {
-      console.warn(`⚠️  Payment setup warning: ${error.message}`);
+      console.warn(`Payment setup warning: ${error.message}`);
       console.log('   Continuing...\n');
     }
   }
 
   // Upload files
-  console.log(`☁️  Uploading ${files.length} files to Filecoin...`);
+  console.log(`Uploading ${files.length} files to Filecoin...`);
   const uploadResults = [];
 
   for (let i = 0; i < files.length; i++) {
@@ -216,7 +216,7 @@ async function deployToFilecoin(files, network) {
       if (ipfsCid) {
         console.log(`   ✅ IPFS CID: ${ipfsCid}`);
       }
-      console.log(`   ⏱️  Upload time: ${uploadDuration}s`);
+      console.log(`   Upload time: ${uploadDuration}s`);
 
       // Small delay between uploads
       if (i < files.length - 1) {
@@ -251,7 +251,7 @@ async function deployToStoracha(files) {
     );
   }
 
-  console.log(`☁️  Uploading ${files.length} files to Storacha Network...`);
+  console.log(`Uploading ${files.length} files to Storacha Network...`);
   console.log(`   Using space: ${spaceDID}`);
 
   // Use the build directory directly (Storacha CLI handles directories well)
@@ -291,9 +291,9 @@ async function deployToStoracha(files) {
       if (!found) {
         throw new Error(
           `Storacha CLI not found in PATH. Install it with:\n` +
-            `  npm install -g @storacha/cli\n` +
-            `Then authenticate with:\n` +
-            `  storacha login your-email@example.com`
+          `  npm install -g @storacha/cli\n` +
+          `Then authenticate with:\n` +
+          `  storacha login your-email@example.com`
         );
       }
     }
@@ -345,8 +345,8 @@ async function deployToStoracha(files) {
     if (!cid) {
       throw new Error(
         `Could not parse CID from Storacha CLI output.\n` +
-          `Output: ${output}\n` +
-          `Make sure the upload succeeded.`
+        `Output: ${output}\n` +
+        `Make sure the upload succeeded.`
       );
     }
 
@@ -364,9 +364,9 @@ async function deployToStoracha(files) {
     ) {
       throw new Error(
         `Storacha CLI not found. Install it with:\n` +
-          `  npm install -g @storacha/cli\n` +
-          `Then authenticate with:\n` +
-          `  storacha login your-email@example.com`
+        `  npm install -g @storacha/cli\n` +
+        `Then authenticate with:\n` +
+        `  storacha login your-email@example.com`
       );
     }
 
@@ -387,7 +387,7 @@ async function main() {
     ? args[args.indexOf('--network') + 1] || 'calibration'
     : 'calibration';
 
-  console.log('🚀 Starting deployment...\n');
+  console.log('Starting deployment...\n');
   console.log(`Backend: ${backend}`);
   if (backend === 'filecoin') {
     console.log(`Network: ${network}`);
@@ -411,7 +411,7 @@ async function main() {
   }
 
   if (!actualBuildDir) {
-    console.log('📦 Building frontend...');
+    console.log('Building frontend...');
     try {
       execSync('npm run build', {
         cwd: path.join(__dirname, '..'),
@@ -462,13 +462,13 @@ async function main() {
 
   // Output results
   console.log('\n' + '='.repeat(60));
-  console.log('🎉 Deployment successful!');
+  console.log('Deployment successful!');
   console.log('='.repeat(60));
   console.log(`\nBackend: ${result.backend}`);
   if (result.network) {
     console.log(`Network: ${result.network}`);
   }
-  console.log(`\n📦 Content Identifiers:`);
+  console.log(`\nContent Identifiers:`);
 
   if (result.directoryCID) {
     console.log(`   Directory CID: ${result.directoryCID}`);
@@ -490,7 +490,7 @@ async function main() {
     console.log(`   IPFS Gateway: https://ipfs.io/ipfs/${result.indexFileCID}`);
   }
 
-  console.log(`\n📝 Update your ENS contenthash to:`);
+  console.log(`\nUpdate your ENS contenthash to:`);
   const ensCID = result.directoryCID || result.indexFileCID;
   const ensPath = result.directoryCID ? `${ensCID}/` : ensCID;
   console.log(`   ipfs://${ensPath}`);
@@ -498,18 +498,18 @@ async function main() {
   // Encode for ENS if possible
   try {
     const encoded = encode('ipfs', ensCID);
-    console.log(`\n📋 ENS encoded contenthash:`);
+    console.log(`\nENS encoded contenthash:`);
     console.log(`   ${encoded}`);
   } catch (error) {
     // Ignore encoding errors
   }
 
-  console.log('\n💡 Storage Details:');
+  console.log('\nStorage Details:');
   if (result.backend === 'filecoin') {
     console.log('   • Content stored on Filecoin (persistent, decentralized)');
     console.log('   • IPFS CIDs computed locally (for reference)');
-    console.log('   ⚠️  Content NOT automatically accessible via IPFS gateways');
-    console.log('   ⚠️  Requires manual IPFS pinning for ENS access');
+    console.log('   WARNING: Content NOT automatically accessible via IPFS gateways');
+    console.log('   WARNING: Requires manual IPFS pinning for ENS access');
   } else {
     console.log('   • Content stored on Filecoin (persistent, decentralized)');
     console.log('   • Automatically pinned to IPFS (ENS/gateway access)');

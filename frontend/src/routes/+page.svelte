@@ -41,9 +41,9 @@
   <p class="description">Automated and permissionless Web3 inheritance management.</p>
 
   <div class="beta-disclaimer">
-    ⚠️ This application is currently in <strong>beta</strong>. Please use with caution, only with
+    WARNING: This application is currently in <strong>beta</strong>. Please use with caution, only with
     amounts you're comfortable losing and only connect disposable wallets. Lastly, use only
-    <strong>testnets</strong>! ⚠️
+    <strong>testnets</strong>!
   </div>
 
   <div class="card">

@@ -54,7 +54,7 @@ async function main() {
         console.log("✅ Contract is already verified!");
         console.log(`View on explorer: ${getExplorerUrl(networkName, factoryAddress)}`);
       } else {
-        console.log("⚠️  Verification failed:", error.message);
+        console.log("Verification failed:", error.message);
         console.log("\nYou can verify manually later using:");
         console.log(
           `  CONTRACT_ADDRESS=${factoryAddress} npx hardhat run scripts/verify.js --network ${networkName}`
@@ -62,7 +62,7 @@ async function main() {
       }
     }
   } else {
-    console.log("\n⚠️  API key not configured. Skipping verification.");
+    console.log("\nAPI key not configured. Skipping verification.");
     console.log("To verify later, run:");
     console.log(
       `  CONTRACT_ADDRESS=${factoryAddress} npx hardhat run scripts/verify.js --network ${networkName}`
