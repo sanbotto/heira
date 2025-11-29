@@ -28,6 +28,13 @@ async function main() {
     process.exit(1);
   }
 
+  // Clean and compile to ensure we're using the latest compiler settings
+  console.log("\nCleaning old artifacts...");
+  await hre.run("clean");
+  console.log("Compiling contracts with current settings...");
+  await hre.run("compile");
+  console.log("Compilation complete.\n");
+
   try {
     console.log("Starting verification...");
     if (!isBlockscout) {

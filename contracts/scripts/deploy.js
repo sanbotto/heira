@@ -2,6 +2,15 @@ const hre = require("hardhat");
 const { isBlockscoutNetwork, getExplorerUrl, isAlreadyVerified } = require("./utils");
 
 async function main() {
+  console.log("Cleaning old artifacts...");
+  await hre.run("clean");
+  console.log("Compiling contracts with latest settings...");
+  await hre.run("compile");
+  console.log("Compilation complete.\n");
+
+  // Small delay to ensure compilation artifacts are fully written
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
   console.log("Deploying InheritanceEscrowFactory...");
 
   const InheritanceEscrowFactory = await hre.ethers.getContractFactory(
@@ -26,6 +35,10 @@ async function main() {
   if (shouldVerify) {
     console.log("\nWaiting for block confirmations before verification...");
     await factory.deploymentTransaction()?.wait(5);
+
+    // Wait additional time for the contract to be fully indexed on the explorer
+    console.log("Waiting for contract to be indexed on explorer (10 seconds)...");
+    await new Promise(resolve => setTimeout(resolve, 10000));
 
     try {
       const explorerName = isBlockscout ? 'Blockscout' : 'Etherscan/Basescan';
