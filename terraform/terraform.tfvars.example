@@ -1,0 +1,2 @@
+CLOUDFLARE_ACCOUNT_ID = "your-cloudflare-account-id"
+tf_cloud_role = "arn:aws:iam::account-id:role/terraform-cloud-role"

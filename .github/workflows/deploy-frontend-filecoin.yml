@@ -1,0 +1,44 @@
+name: Deploy Frontend to Filecoin
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend-filecoin.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Filecoin
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+
+      - name: Deploy to Filecoin (Storacha)
+        working-directory: frontend
+        run: npm run deploy:storacha
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          STORACHA_SPACE: ${{ secrets.STORACHA_SPACE }}
+
+      # Ideally, we'd then update the ENS contenthash to the new CID
