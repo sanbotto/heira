@@ -1,231 +1,102 @@
-import { Router } from "express";
-import { exec } from "child_process";
-import { promisify } from "util";
-import path from "path";
-import { fileURLToPath } from "url";
+import { Router } from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { readFile } from 'fs/promises';
+import {
+  verifyEscrowWithBlockscout,
+  checkVerificationStatus,
+} from '../../../workers/shared/verification/blockscout.js';
+import { VALID_NETWORKS, getExplorerUrl } from '../../../workers/shared/constants.js';
+import type { VerifyEscrowRequest } from '../../../workers/shared/types.js';
 
-const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const verifyEscrowRouter = Router();
 
-const VALID_NETWORKS = [
-  "sepolia",
-  "baseSepolia",
-  "mainnet",
-  "base",
-  "citrea-testnet",
-  "citreaTestnet",
-];
-
-function isBlockscoutNetwork(network: string): boolean {
-  return network === "citrea-testnet" || network === "citreaTestnet";
+/**
+ * Load Standard JSON Input from build artifacts
+ */
+async function loadStandardJsonInput(): Promise<string> {
+  try {
+    const contractsDir = path.resolve(__dirname, '..', '..', '..', 'contracts');
+    const buildInfoPath = path.join(
+      contractsDir,
+      'artifacts',
+      'build-info',
+      'bae91e66b8308592901f4fef090532bb.json'
+    );
+    const buildInfo = await readFile(buildInfoPath, 'utf-8');
+    return buildInfo;
+  } catch (error: any) {
+    console.warn('Could not load Standard JSON Input:', error.message);
+    return '';
+  }
 }
 
-verifyEscrowRouter.post("/", async (req, res) => {
+verifyEscrowRouter.post('/', async (req, res) => {
   try {
-    const { escrowAddress, mainWallet, inactivityPeriod, owner, network } =
-      req.body;
+    const { escrowAddress, mainWallet, inactivityPeriod, owner, network } = req.body;
 
-    if (
-      !escrowAddress ||
-      !mainWallet ||
-      inactivityPeriod === undefined ||
-      !owner ||
-      !network
-    ) {
+    if (!escrowAddress || !mainWallet || inactivityPeriod === undefined || !owner || !network) {
       return res.status(400).json({
         success: false,
         message:
-          "Missing required fields: escrowAddress, mainWallet, inactivityPeriod, owner, network",
+          'Missing required fields: escrowAddress, mainWallet, inactivityPeriod, owner, network',
       });
     }
 
-    if (!VALID_NETWORKS.includes(network)) {
+    if (!VALID_NETWORKS.includes(network as any)) {
       return res.status(400).json({
         success: false,
-        message: `Invalid network. Must be one of: ${VALID_NETWORKS.join(", ")}`,
+        message: `Invalid network. Must be one of: ${VALID_NETWORKS.join(', ')}`,
       });
     }
 
-    // Get the contracts directory path
-    // Backend is in backend/, contracts are in ../contracts relative to backend/
-    const contractsDir = path.resolve(__dirname, "..", "..", "..", "contracts");
+    // Load Standard JSON Input
+    const standardJsonInput = await loadStandardJsonInput();
 
-    // Check if contracts directory exists
-    const fs = await import("fs");
-    if (!fs.existsSync(contractsDir)) {
-      console.error(`Contracts directory not found: ${contractsDir}`);
+    if (!standardJsonInput) {
       return res.status(500).json({
         success: false,
-        message: `Contracts directory not found at ${contractsDir}. Make sure the contracts folder exists.`,
+        message: 'Standard JSON Input not available. Please ensure contracts are compiled.',
       });
     }
 
-    const escapeShell = (str: string) => `"${str.replace(/"/g, '\\"')}"`;
-    const envVars = [
-      `CONTRACT_ADDRESS=${escapeShell(escrowAddress)}`,
-      `MAIN_WALLET=${escapeShell(mainWallet)}`,
-      `INACTIVITY_PERIOD=${inactivityPeriod}`,
-      `OWNER=${escapeShell(owner)}`,
-    ].join(" ");
-
-    const cleanCommand = `cd ${contractsDir} && npx hardhat clean`;
-    const compileCommand = `cd ${contractsDir} && npx hardhat compile`;
-    const command = `cd ${contractsDir} && ${envVars} npx hardhat run scripts/verify-escrow.js --network ${network}`;
-
-    console.log(
-      `Executing verification command: ${command.replace(/ETHERSCAN_API_KEY=[^\s]+/, "ETHERSCAN_API_KEY=***")}`,
-    );
-    console.log(`Working directory: ${contractsDir}`);
-
-    try {
-      console.log("Cleaning old artifacts...");
-      try {
-        await execAsync(cleanCommand, {
-          timeout: 30000,
-          maxBuffer: 1024 * 1024 * 10,
-          cwd: contractsDir,
-        });
-      } catch (cleanError: any) {
-        console.warn("Clean warning (continuing anyway):", cleanError.message);
-      }
-
-      console.log("Compiling contracts...");
-      try {
-        await execAsync(compileCommand, {
-          timeout: 120000,
-          maxBuffer: 1024 * 1024 * 10,
-          cwd: contractsDir,
-        });
-        console.log("Compilation successful");
-      } catch (compileError: any) {
-        const compileOutput =
-          (compileError.stdout || "") + (compileError.stderr || "");
-        if (
-          compileOutput.toLowerCase().includes("error") &&
-          !compileOutput.toLowerCase().includes("warning")
-        ) {
-          console.error("Compilation failed:", compileOutput);
-          return res.status(500).json({
-            success: false,
-            message: "Compilation failed before verification.",
-            details: compileOutput,
-          });
-        }
-        console.warn("Compilation completed with warnings, continuing...");
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      console.log("Running verification script...");
-      const { stdout, stderr } = await execAsync(command, {
-        timeout: 180000,
-        maxBuffer: 1024 * 1024 * 10,
-        cwd: contractsDir,
-        env: {
-          ...process.env,
-          CONTRACT_ADDRESS: escrowAddress,
-          MAIN_WALLET: mainWallet,
-          INACTIVITY_PERIOD: inactivityPeriod.toString(),
-          OWNER: owner,
-        },
-      });
-
-      console.log("Verification stdout:", stdout);
-      if (stderr) console.log("Verification stderr:", stderr);
-
-      // If execAsync didn't throw, verification succeeded (exit code 0)
-      // Extract explorer URL if present
-      const output = stdout + stderr;
-      const explorerUrlMatch = output.match(
-        /View on explorer: (https?:\/\/[^\s]+)/i,
-      );
-      const explorerUrl = explorerUrlMatch ? explorerUrlMatch[1] : undefined;
-
-      // Check if output indicates already verified (informational, not an error)
-      const isAlreadyVerified = output
-        .toLowerCase()
-        .includes("already verified");
-
+    // Check if already verified
+    const isVerified = await checkVerificationStatus(escrowAddress, network, fetch);
+    if (isVerified) {
       return res.json({
         success: true,
-        message: isAlreadyVerified
-          ? "Contract is already verified"
-          : "Contract verified successfully",
-        explorerUrl,
-        alreadyVerified: isAlreadyVerified,
-      });
-    } catch (execError: any) {
-      const errorOutput = (execError.stdout || "") + (execError.stderr || "");
-      console.error("Verification error:", execError.message);
-      console.error("Error output:", errorOutput);
-
-      if (
-        execError.code === 0 ||
-        errorOutput.toLowerCase().includes("already verified")
-      ) {
-        const explorerUrlMatch = errorOutput.match(
-          /View on explorer: (https?:\/\/[^\s]+)/i,
-        );
-        const explorerUrl = explorerUrlMatch ? explorerUrlMatch[1] : undefined;
-
-        return res.json({
-          success: true,
-          message: "Contract is already verified",
-          explorerUrl,
-          alreadyVerified: true,
-        });
-      }
-
-      if (
-        isBlockscoutNetwork(network) &&
-        errorOutput.includes("Unable to verify")
-      ) {
-        console.warn(
-          "Blockscout verification failed, but contract is still functional",
-        );
-        return res.json({
-          success: true,
-          message:
-            "Contract deployed successfully. Verification failed on Blockscout (this is common and non-fatal). Contract is fully functional.",
-          explorerUrl: `https://explorer.testnet.citrea.xyz/address/${escrowAddress}`,
-          alreadyVerified: false,
-          verificationNote:
-            "Blockscout verification can be unreliable. Contract functionality is not affected.",
-        });
-      }
-
-      let errorMessage = "Verification failed";
-      if (
-        errorOutput.includes("bytecode") &&
-        errorOutput.includes("doesn't match")
-      ) {
-        errorMessage =
-          "Bytecode mismatch: The deployed contract bytecode does not match the compiled contract. Please ensure compiler settings match exactly.";
-      } else if (errorOutput) {
-        const errorMatch = errorOutput.match(/Error:?\s*(.+?)(?:\n|$)/i);
-        if (errorMatch) {
-          errorMessage = errorMatch[1].trim();
-        } else {
-          errorMessage = errorOutput.slice(0, 500);
-        }
-      } else if (execError.message) {
-        errorMessage = execError.message;
-      }
-
-      return res.status(500).json({
-        success: false,
-        message: errorMessage,
-        details: errorOutput || execError.message,
+        message: 'Contract is already verified',
+        explorerUrl: getExplorerUrl(network, escrowAddress),
+        alreadyVerified: true,
       });
     }
+
+    // Verify with Blockscout
+    const verifyRequest: VerifyEscrowRequest = {
+      escrowAddress,
+      mainWallet,
+      inactivityPeriod:
+        typeof inactivityPeriod === 'string' ? parseInt(inactivityPeriod) : inactivityPeriod,
+      owner,
+      network,
+    };
+
+    const result = await verifyEscrowWithBlockscout(
+      verifyRequest,
+      standardJsonInput,
+      process.env.BLOCKSCOUT_API_KEY,
+      fetch
+    );
+
+    return res.status(result.success ? 200 : 500).json(result);
   } catch (error: any) {
-    console.error("Verification API error:", error);
+    console.error('Verification API error:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
       details: error.message,
     });
   }

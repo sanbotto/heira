@@ -1,30 +1,28 @@
-import { Router } from "express";
-import { ethers } from "ethers";
+import { Router } from 'express';
+import { ethers } from 'ethers';
 import {
   addEscrow,
   removeEscrow,
   getEscrow,
   type EscrowMetadata,
-} from "../services/escrow-storage.js";
-import { createKeeperFromEnv } from "../services/keeper.js";
+} from '../services/escrow-storage.js';
+import { createKeeperFromEnv } from '../services/keeper.js';
 
 export const escrowsRouter = Router();
 
-// ABI for InheritanceEscrow contract (minimal needed for validation)
-const ESCROW_ABI = [
-  "function inactivityPeriod() external view returns (uint256)",
-];
+// ABI for HeiraInheritanceEscrow contract (minimal needed for validation)
+const ESCROW_ABI = ['function inactivityPeriod() external view returns (uint256)'];
 
 /**
  * Get RPC URL for a network name from dedicated environment variables
  */
 function getRpcUrlForNetwork(networkName: string): string | null {
   const rpcMap: Record<string, string> = {
-    mainnet: process.env.MAINNET_RPC_URL || "",
-    sepolia: process.env.SEPOLIA_RPC_URL || "",
-    base: process.env.BASE_RPC_URL || "",
-    baseSepolia: process.env.BASE_SEPOLIA_RPC_URL || "",
-    citreaTestnet: process.env.CITREA_RPC_URL || "",
+    mainnet: process.env.MAINNET_RPC_URL || '',
+    sepolia: process.env.SEPOLIA_RPC_URL || '',
+    base: process.env.BASE_RPC_URL || '',
+    baseSepolia: process.env.BASE_SEPOLIA_RPC_URL || '',
+    citreaTestnet: process.env.CITREA_RPC_URL || '',
   };
 
   return rpcMap[networkName] || null;
@@ -35,14 +33,14 @@ function getRpcUrlForNetwork(networkName: string): string | null {
  */
 function getRpcEnvVarName(networkName: string): string {
   const envVarMap: Record<string, string> = {
-    mainnet: "MAINNET_RPC_URL",
-    sepolia: "SEPOLIA_RPC_URL",
-    base: "BASE_RPC_URL",
-    baseSepolia: "BASE_SEPOLIA_RPC_URL",
-    citreaTestnet: "CITREA_RPC_URL",
+    mainnet: 'MAINNET_RPC_URL',
+    sepolia: 'SEPOLIA_RPC_URL',
+    base: 'BASE_RPC_URL',
+    baseSepolia: 'BASE_SEPOLIA_RPC_URL',
+    citreaTestnet: 'CITREA_RPC_URL',
   };
 
-  return envVarMap[networkName] || "RPC_URL";
+  return envVarMap[networkName] || 'RPC_URL';
 }
 
 /**
@@ -58,28 +56,25 @@ function getProviderForNetwork(networkName: string): ethers.Provider | null {
 }
 
 /**
- * POST /api/escrows/register
+ * POST /api/escrow/register
  * Register a new escrow with the keeper
  */
-escrowsRouter.post("/register", async (req, res) => {
+escrowsRouter.post('/register', async (req, res) => {
   try {
     const { escrowAddress, network, email, inactivityPeriod } = req.body;
 
-    console.log(
-      `[${new Date().toISOString()}] Received escrow registration request:`,
-      {
-        escrowAddress,
-        network,
-        hasEmail: !!email,
-        inactivityPeriod,
-      },
-    );
+    console.log(`[${new Date().toISOString()}] Received escrow registration request:`, {
+      escrowAddress,
+      network,
+      hasEmail: !!email,
+      inactivityPeriod,
+    });
 
     // Validate required fields
     if (!escrowAddress || !network) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: escrowAddress, network",
+        message: 'Missing required fields: escrowAddress, network',
       });
     }
 
@@ -87,12 +82,12 @@ escrowsRouter.post("/register", async (req, res) => {
     if (
       email &&
       email !== null &&
-      email.trim() !== "" &&
+      email.trim() !== '' &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
     ) {
       return res.status(400).json({
         success: false,
-        message: "Invalid email format",
+        message: 'Invalid email format',
       });
     }
 
@@ -109,18 +104,13 @@ escrowsRouter.post("/register", async (req, res) => {
     // Validate escrow exists on-chain
     let inactivityPeriodToUse = inactivityPeriod;
     try {
-      const escrowContract = new ethers.Contract(
-        escrowAddress,
-        ESCROW_ABI,
-        provider,
-      );
+      const escrowContract = new ethers.Contract(escrowAddress, ESCROW_ABI, provider);
 
       // Try to get inactivity period from contract if not provided
       // This also validates that the contract exists
       if (!inactivityPeriodToUse) {
         try {
-          const contractInactivityPeriod =
-            await escrowContract.inactivityPeriod();
+          const contractInactivityPeriod = await escrowContract.inactivityPeriod();
           inactivityPeriodToUse = Number(contractInactivityPeriod);
         } catch (error) {
           // If we can't get inactivity period, use 0 as fallback
@@ -129,31 +119,25 @@ escrowsRouter.post("/register", async (req, res) => {
       }
     } catch (error: any) {
       const errorMessage = error.message || String(error);
-      if (
-        errorMessage.includes("invalid address") ||
-        errorMessage.includes("call revert")
-      ) {
+      if (errorMessage.includes('invalid address') || errorMessage.includes('call revert')) {
         return res.status(400).json({
           success: false,
-          message: "Invalid escrow address or contract not found",
+          message: 'Invalid escrow address or contract not found',
         });
       }
       // If we can't verify the contract, still allow registration but log a warning
       console.warn(
         `[${new Date().toISOString()}] Could not verify escrow contract ${escrowAddress} on ${network}, but proceeding with registration:`,
-        errorMessage,
+        errorMessage
       );
     }
 
-    // Add escrow to storage (regardless of status - keeper will check status during monitoring)
+    // Add escrow to storage (regardless of status; the keeper service will check status during monitoring)
     // If email is null or empty string, set to undefined to disable notifications
     const metadata: EscrowMetadata = {
       escrowAddress: escrowAddress.toLowerCase(),
       network,
-      email:
-        email && email !== null && email.trim() !== ""
-          ? email.trim()
-          : undefined,
+      email: email && email !== null && email.trim() !== '' ? email.trim() : undefined,
       inactivityPeriod: inactivityPeriodToUse || 0,
       createdAt: Date.now(),
     };
@@ -161,44 +145,41 @@ escrowsRouter.post("/register", async (req, res) => {
     await addEscrow(metadata);
 
     console.log(
-      `[${new Date().toISOString()}] Successfully registered escrow ${escrowAddress} for monitoring on ${network}`,
+      `[${new Date().toISOString()}] Successfully registered escrow ${escrowAddress} for monitoring on ${network}`
     );
 
     return res.json({
       success: true,
-      message: "Escrow registered successfully",
+      message: 'Escrow registered successfully',
     });
   } catch (error: any) {
-    console.error("Error registering escrow:", error);
+    console.error('Error registering escrow:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
       details: error.message,
     });
   }
 });
 
 /**
- * POST /api/escrows/unregister
+ * POST /api/escrow/unregister
  * Remove an escrow from keeper monitoring
  */
-escrowsRouter.post("/unregister", async (req, res) => {
+escrowsRouter.post('/unregister', async (req, res) => {
   try {
     const { escrowAddress, network } = req.body;
 
-    console.log(
-      `[${new Date().toISOString()}] Received escrow unregistration request:`,
-      {
-        escrowAddress,
-        network,
-      },
-    );
+    console.log(`[${new Date().toISOString()}] Received escrow unregistration request:`, {
+      escrowAddress,
+      network,
+    });
 
     // Validate required fields
     if (!escrowAddress || !network) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: escrowAddress, network",
+        message: 'Missing required fields: escrowAddress, network',
       });
     }
 
@@ -207,45 +188,45 @@ escrowsRouter.post("/unregister", async (req, res) => {
 
     if (!removed) {
       console.log(
-        `[${new Date().toISOString()}] Escrow ${escrowAddress} not found in monitoring list for ${network}`,
+        `[${new Date().toISOString()}] Escrow ${escrowAddress} not found in monitoring list for ${network}`
       );
       return res.status(404).json({
         success: false,
-        message: "Escrow not found in monitoring list",
+        message: 'Escrow not found in monitoring list',
       });
     }
 
     console.log(
-      `[${new Date().toISOString()}] Successfully unregistered escrow ${escrowAddress} from monitoring on ${network}`,
+      `[${new Date().toISOString()}] Successfully unregistered escrow ${escrowAddress} from monitoring on ${network}`
     );
 
     return res.json({
       success: true,
-      message: "Escrow unregistered successfully",
+      message: 'Escrow unregistered successfully',
     });
   } catch (error: any) {
-    console.error("Error unregistering escrow:", error);
+    console.error('Error unregistering escrow:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
       details: error.message,
     });
   }
 });
 
 /**
- * GET /api/escrows/:address
+ * GET /api/escrow/:address
  * Get escrow metadata
  */
-escrowsRouter.get("/:address", async (req, res) => {
+escrowsRouter.get('/:address', async (req, res) => {
   try {
     const { address } = req.params;
     const { network } = req.query;
 
-    if (!network || typeof network !== "string") {
+    if (!network || typeof network !== 'string') {
       return res.status(400).json({
         success: false,
-        message: "Missing required query parameter: network",
+        message: 'Missing required query parameter: network',
       });
     }
 
@@ -254,7 +235,7 @@ escrowsRouter.get("/:address", async (req, res) => {
     if (!escrow) {
       return res.status(404).json({
         success: false,
-        message: "Escrow not found",
+        message: 'Escrow not found',
       });
     }
 
@@ -271,10 +252,10 @@ escrowsRouter.get("/:address", async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error("Error getting escrow:", error);
+    console.error('Error getting escrow:', error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: 'Internal server error',
       details: error.message,
     });
   }

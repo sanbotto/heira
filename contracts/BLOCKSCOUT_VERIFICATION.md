@@ -20,7 +20,7 @@ Factory Contract: `0x941a0d37CDd7506C2D109B70E4b7E65B15e6b8bc`
 3. **Select "Via Standard JSON Input"** (recommended)
 
 4. **Fill in the contract details:**
-   - **Contract Name:** `InheritanceEscrowFactory`
+   - **Contract Name:** `HeiraInheritanceEscrowFactory`
    - **Compiler Version:** `v0.8.24+commit.e14b2715`
    - **Optimization:** `Yes` (200 runs)
    - **EVM Version:** `default`
@@ -57,7 +57,7 @@ curl -X POST "https://explorer.testnet.citrea.xyz/api" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "module=contract&action=verifysourcecode" \
   -d "addressHash=0x941a0d37CDd7506C2D109B70E4b7E65B15e6b8bc" \
-  -d "contractname=InheritanceEscrowFactory" \
+  -d "contractname=HeiraInheritanceEscrowFactory" \
   -d "compilerversion=v0.8.24+commit.e14b2715" \
   -d "optimizationUsed=1" \
   -d "runs=200" \
@@ -92,7 +92,7 @@ https://explorer.testnet.citrea.xyz/address/0x941a0d37CDd7506C2D109B70E4b7E65B15
 ```
 
 Once verified, you'll see:
-- ✅ Green checkmark
+- Green checkmark
 - Source code visible
 - Contract functions and events listed
 

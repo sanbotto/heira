@@ -1,0 +1,26 @@
+name = "heira-keeper"
+main = "src/index.ts"
+compatibility_date = "2024-11-27"
+
+# Cron trigger - runs daily at midnight UTC
+[triggers]
+crons = ["0 0 * * *"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "heira-db"
+database_id = "" # Will be set after creating the database
+
+# Secrets (set via wrangler secret put or Cloudflare dashboard)
+# PRIVATE_KEY
+# MAILPACE_API_TOKEN
+# FACTORY_ADDRESS_ETHEREUM
+# FACTORY_ADDRESS_BASE
+# FACTORY_ADDRESS_CITREA
+# MAINNET_RPC_URL
+# SEPOLIA_RPC_URL
+# BASE_RPC_URL
+# BASE_SEPOLIA_RPC_URL
+# CITREA_RPC_URL
+# KEEPER_CHECK_INTERVAL_MS (optional, defaults to 300000)

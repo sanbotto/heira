@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
-describe("InheritanceEscrow", function () {
+describe("HeiraInheritanceEscrow", function () {
     let factory;
     let escrow;
     let owner;
@@ -18,7 +18,7 @@ describe("InheritanceEscrow", function () {
         [owner, beneficiary1, beneficiary2] = await ethers.getSigners();
 
         // Deploy factory
-        const Factory = await ethers.getContractFactory("InheritanceEscrowFactory");
+        const Factory = await ethers.getContractFactory("HeiraInheritanceEscrowFactory");
         factory = await Factory.deploy();
         await factory.waitForDeployment();
 
@@ -58,7 +58,7 @@ describe("InheritanceEscrow", function () {
             escrowAddress = allEscrows[0];
         }
 
-        const Escrow = await ethers.getContractFactory("InheritanceEscrow");
+        const Escrow = await ethers.getContractFactory("HeiraInheritanceEscrow");
         escrow = Escrow.attach(escrowAddress);
     });
 
@@ -246,13 +246,13 @@ describe("InheritanceEscrow", function () {
     });
 });
 
-describe("InheritanceEscrowFactory", function () {
+describe("HeiraInheritanceEscrowFactory", function () {
     let factory;
     let owner;
 
     beforeEach(async function () {
         [owner] = await ethers.getSigners();
-        const Factory = await ethers.getContractFactory("InheritanceEscrowFactory");
+        const Factory = await ethers.getContractFactory("HeiraInheritanceEscrowFactory");
         factory = await Factory.deploy();
         await factory.waitForDeployment();
     });

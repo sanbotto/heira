@@ -90,7 +90,7 @@
       const networkName = getNetworkName($wallet.chainId);
 
       const response = await fetch(
-        `${backendUrl}/api/escrows/${escrowAddress}?network=${networkName}`
+        `${backendUrl}/api/escrow/${escrowAddress}?network=${networkName}`
       );
 
       if (response.ok) {
@@ -283,7 +283,7 @@
         console.warn('Could not fetch inactivity period, proceeding without it:', error);
       }
 
-      const response = await fetch(`${backendUrl}/api/escrows/register`, {
+      const response = await fetch(`${backendUrl}/api/escrow/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -352,7 +352,7 @@
       }
 
       // Register with empty email to disable notifications
-      const response = await fetch(`${backendUrl}/api/escrows/register`, {
+      const response = await fetch(`${backendUrl}/api/escrow/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -410,7 +410,7 @@
           const backendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:3001';
           const networkName = getNetworkName($wallet.chainId);
 
-          await fetch(`${backendUrl}/api/escrows/unregister`, {
+          await fetch(`${backendUrl}/api/escrow/unregister`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

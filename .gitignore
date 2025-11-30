@@ -36,3 +36,5 @@ coverage/
 
 # Backend data storage
 backend/data/
+
+infra/

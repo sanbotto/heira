@@ -126,7 +126,7 @@ This script:
 You can also use Hardhat's built-in verify command:
 
 ```bash
-# For contracts with no constructor arguments (like InheritanceEscrowFactory)
+# For contracts with no constructor arguments (like HeiraInheritanceEscrowFactory)
 npx hardhat verify --network sepolia 0xContractAddress
 
 # For contracts with constructor arguments

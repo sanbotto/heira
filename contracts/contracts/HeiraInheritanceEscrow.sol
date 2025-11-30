@@ -8,12 +8,12 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./interfaces/ICoinbaseTrade.sol";
 
 /**
- * @title InheritanceEscrow
+ * @title HeiraInheritanceEscrow
  * @notice Smart contract for managing inheritance escrow with time-based activation
  * @dev When the owner's wallet has no transactions for the configured period,
  *      the contract can execute transfers to designated beneficiaries
  */
-contract InheritanceEscrow is Ownable, ReentrancyGuard {
+contract HeiraInheritanceEscrow is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     enum Status {
@@ -545,8 +545,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                     ) {
                         // Beneficiary wants USDC directly - calculate their portion
                         totalUSDCNeeded +=
-                            (usdcBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
+                            (usdcBalanceInMainWallet * beneficiaries[i].percentage) / BASIS_POINTS;
                     }
                 }
 
@@ -572,8 +571,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                     ) {
                         // Beneficiary wants WCBTC directly - calculate their portion
                         totalWCBTCNeeded +=
-                            (wcbtcBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
+                            (wcbtcBalanceInMainWallet * beneficiaries[i].percentage) / BASIS_POINTS;
                     }
                 }
 
@@ -599,8 +597,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                     ) {
                         // Beneficiary wants WETH directly - calculate their portion
                         totalWETHNeeded +=
-                            (wethBalanceInMainWallet * beneficiaries[i].percentage) /
-                            BASIS_POINTS;
+                            (wethBalanceInMainWallet * beneficiaries[i].percentage) / BASIS_POINTS;
                     }
                 }
 
@@ -683,11 +680,7 @@ contract InheritanceEscrow is Ownable, ReentrancyGuard {
                 );
 
                 // Distribute swapped tokens
-                _distributeToBeneficiary(
-                    beneficiary.targetToken,
-                    recipientAddress,
-                    swappedAmount
-                );
+                _distributeToBeneficiary(beneficiary.targetToken, recipientAddress, swappedAmount);
             } else {
                 // Distribute directly without swap
                 _distributeToBeneficiary(tokenAddress, recipientAddress, beneficiaryAmount);

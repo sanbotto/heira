@@ -215,7 +215,7 @@
         const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
         const networkName = getNetworkName($wallet.chainId);
 
-        await fetch(`${backendUrl}/api/escrows/register`, {
+        await fetch(`${backendUrl}/api/escrow/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

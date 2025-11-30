@@ -35,8 +35,8 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 ```
 heira/
 ├── contracts/          # HardHat smart contracts
-│   ├── InheritanceEscrow.sol
-│   ├── InheritanceEscrowFactory.sol
+│   ├── HeiraInheritanceEscrow.sol
+│   ├── HeiraInheritanceEscrowFactory.sol
 │   └── test/
 ├── frontend/          # SvelteKit application (static site)
 │   └── src/

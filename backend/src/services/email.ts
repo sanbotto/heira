@@ -1,8 +1,8 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MAILPACE_API_URL = "https://app.mailpace.com/api/v1/send";
+const MAILPACE_API_URL = 'https://app.mailpace.com/api/v1/send';
 const MAILPACE_API_TOKEN = process.env.MAILPACE_API_TOKEN;
 
 export interface InactivityWarningEmailParams {
@@ -16,18 +16,15 @@ export interface InactivityWarningEmailParams {
 /**
  * Send inactivity warning email via MailPace
  */
-export async function sendInactivityWarning(
-  params: InactivityWarningEmailParams,
-): Promise<void> {
+export async function sendInactivityWarning(params: InactivityWarningEmailParams): Promise<void> {
   if (!MAILPACE_API_TOKEN) {
-    throw new Error("MAILPACE_API_TOKEN not configured");
+    throw new Error('MAILPACE_API_TOKEN not configured');
   }
 
   const { to, escrowAddress, network, daysRemaining, explorerUrl } = params;
 
   // Format days remaining
-  const daysText =
-    daysRemaining === 1 ? "1 day" : `${Math.ceil(daysRemaining)} days`;
+  const daysText = daysRemaining === 1 ? '1 day' : `${Math.ceil(daysRemaining)} days`;
 
   // Generate explorer URL if not provided
   const explorerLink = explorerUrl || getExplorerUrl(escrowAddress, network);
@@ -103,7 +100,7 @@ This is an automated notification from Heira.`;
 
   // Prepare request
   const requestBody = {
-    from: process.env.MAILPACE_FROM_EMAIL || "noreply@heira.app",
+    from: process.env.MAILPACE_FROM_EMAIL || 'noreply@heira.app',
     to: to,
     subject: subject,
     textbody: textBody,
@@ -112,20 +109,18 @@ This is an automated notification from Heira.`;
 
   // Send email via MailPace API
   const response = await fetch(MAILPACE_API_URL, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      "MailPace-Server-Token": MAILPACE_API_TOKEN,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'MailPace-Server-Token': MAILPACE_API_TOKEN,
     },
     body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(
-      `MailPace API error: ${response.status} ${response.statusText} - ${errorText}`,
-    );
+    throw new Error(`MailPace API error: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
   await response.json();
@@ -139,18 +134,18 @@ function getExplorerUrl(escrowAddress: string, network: string): string {
   const address = escrowAddress.toLowerCase();
 
   switch (network.toLowerCase()) {
-    case "mainnet":
-    case "ethereum":
+    case 'mainnet':
+    case 'ethereum':
       return `https://etherscan.io/address/${address}`;
-    case "sepolia":
+    case 'sepolia':
       return `https://sepolia.etherscan.io/address/${address}`;
-    case "base":
-    case "basemainnet":
+    case 'base':
+    case 'basemainnet':
       return `https://basescan.org/address/${address}`;
-    case "basesepolia":
+    case 'basesepolia':
       return `https://sepolia.basescan.org/address/${address}`;
-    case "citrea":
-    case "citreatestnet":
+    case 'citrea':
+    case 'citreatestnet':
       return `https://explorer.testnet.citrea.xyz/address/${address}`;
     default:
       return `https://explorer.${network}.org/address/${address}`;

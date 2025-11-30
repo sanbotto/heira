@@ -158,16 +158,16 @@ async function deployToFilecoin(files, network) {
     privateKey: process.env.PRIVATE_KEY,
     rpcURL: RPC_URL,
   });
-  console.log('✅ SDK initialized\n');
+  console.log('SDK initialized\n');
 
   // Check wallet balance
-  console.log('💰 Checking wallet balance...');
+  console.log('Checking wallet balance...');
   const walletBalance = await synapse.payments.walletBalance(TOKENS.USDFC);
   const formattedBalance = ethers.formatUnits(walletBalance, 18);
   console.log(`Current USDFC balance: ${formattedBalance} USDFC\n`);
 
   // Setup payments
-  console.log('💳 Setting up payments...');
+  console.log('Setting up payments...');
   try {
     const tx = await synapse.payments.depositWithPermitAndApproveOperator(
       DEPOSIT_AMOUNT,
@@ -177,11 +177,11 @@ async function deployToFilecoin(files, network) {
       TIME_CONSTANTS.EPOCHS_PER_MONTH
     );
     await tx.wait();
-    console.log('✅ Payment setup complete\n');
+    console.log('Payment setup complete\n');
   } catch (error) {
     const errorMsg = error.message?.toLowerCase() || '';
     if (errorMsg.includes('already approved') || errorMsg.includes('allowance')) {
-      console.log('✅ Payment already set up\n');
+      console.log('Payment already set up\n');
     } else {
       console.warn(`Payment setup warning: ${error.message}`);
       console.log('   Continuing...\n');
@@ -212,9 +212,9 @@ async function deployToFilecoin(files, network) {
         contentHash: file.contentHash,
       });
 
-      console.log(`   ✅ Piece CID: ${typeof pieceCid === 'string' ? pieceCid : pieceCid?.['/']}`);
+      console.log(`   Piece CID: ${typeof pieceCid === 'string' ? pieceCid : pieceCid?.['/']}`);
       if (ipfsCid) {
-        console.log(`   ✅ IPFS CID: ${ipfsCid}`);
+        console.log(`   IPFS CID: ${ipfsCid}`);
       }
       console.log(`   Upload time: ${uploadDuration}s`);
 
@@ -223,7 +223,7 @@ async function deployToFilecoin(files, network) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     } catch (error) {
-      console.error(`   ❌ Failed: ${error.message}`);
+      console.error(`   Failed: ${error.message}`);
       throw error;
     }
   }
@@ -242,8 +242,7 @@ async function deployToFilecoin(files, network) {
  * Deploy to Storacha Network using CLI
  */
 async function deployToStoracha(files) {
-  const spaceDID =
-    process.env.STORACHA_SPACE || 'did:key:z6MkfEgibWDdvs4EQQ1SX9RyhaDD5ZG9PbxAWpJknombANdj';
+  const spaceDID = process.env.STORACHA_SPACE;
 
   if (!spaceDID) {
     throw new Error(
@@ -291,9 +290,9 @@ async function deployToStoracha(files) {
       if (!found) {
         throw new Error(
           `Storacha CLI not found in PATH. Install it with:\n` +
-          `  npm install -g @storacha/cli\n` +
-          `Then authenticate with:\n` +
-          `  storacha login your-email@example.com`
+            `  npm install -g @storacha/cli\n` +
+            `Then authenticate with:\n` +
+            `  storacha login your-email@example.com`
         );
       }
     }
@@ -345,8 +344,8 @@ async function deployToStoracha(files) {
     if (!cid) {
       throw new Error(
         `Could not parse CID from Storacha CLI output.\n` +
-        `Output: ${output}\n` +
-        `Make sure the upload succeeded.`
+          `Output: ${output}\n` +
+          `Make sure the upload succeeded.`
       );
     }
 
@@ -364,9 +363,9 @@ async function deployToStoracha(files) {
     ) {
       throw new Error(
         `Storacha CLI not found. Install it with:\n` +
-        `  npm install -g @storacha/cli\n` +
-        `Then authenticate with:\n` +
-        `  storacha login your-email@example.com`
+          `  npm install -g @storacha/cli\n` +
+          `Then authenticate with:\n` +
+          `  storacha login your-email@example.com`
       );
     }
 
@@ -430,11 +429,11 @@ async function main() {
       throw new Error(`Failed to build frontend: ${error.message}`);
     }
   } else {
-    console.log(`✅ Build directory found: ${actualBuildDir}\n`);
+    console.log(`Build directory found: ${actualBuildDir}\n`);
   }
 
   // Collect files
-  console.log('📁 Collecting files...');
+  console.log('Collecting files...');
   const files = collectFiles(actualBuildDir, '', {
     skipPadding: backend === 'storacha', // Only pad for Filecoin
   });
@@ -456,7 +455,7 @@ async function main() {
       throw new Error(`Unknown backend: ${backend}. Supported: filecoin, storacha`);
     }
   } catch (error) {
-    console.error(`\n❌ Deployment failed: ${error.message}`);
+    console.error(`\nDeployment failed: ${error.message}`);
     process.exit(1);
   }
 
@@ -482,7 +481,7 @@ async function main() {
     }
   }
 
-  console.log(`\n🌐 Access your app:`);
+  console.log(`\nAccess your app:`);
   if (result.directoryCID) {
     console.log(`   IPFS Gateway: https://ipfs.io/ipfs/${result.directoryCID}/`);
     console.log(`   Index file: https://ipfs.io/ipfs/${result.directoryCID}/index.html`);
@@ -513,12 +512,12 @@ async function main() {
   } else {
     console.log('   • Content stored on Filecoin (persistent, decentralized)');
     console.log('   • Automatically pinned to IPFS (ENS/gateway access)');
-    console.log('   ✅ Ready for ENS immediately');
+    console.log('   Ready for ENS immediately');
   }
   console.log('='.repeat(60));
 }
 
 main().catch(error => {
-  console.error('\n❌ Fatal error:', error.message);
+  console.error('\nFatal error:', error.message);
   process.exit(1);
 });

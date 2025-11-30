@@ -67,14 +67,14 @@ npm run deploy:filecoin:mainnet
 
 The deployment script:
 
-1. ✅ Checks for `PRIVATE_KEY` in `frontend/.env`
-2. ✅ Builds the frontend if not already built (generates static files)
-3. ✅ Initializes the Filecoin Synapse SDK
-4. ✅ Checks wallet balance (warns if insufficient)
-5. ✅ Sets up payments (deposits 2.5 USDFC and approves Warm Storage service)
-6. ✅ Uploads all frontend build files to Filecoin
-7. ✅ Creates a deployment manifest with all file CIDs
-8. ✅ Outputs the CIDs and access URLs
+1. Checks for `PRIVATE_KEY` in `frontend/.env`
+2. Builds the frontend if not already built (generates static files)
+3. Initializes the Filecoin Synapse SDK
+4. Checks wallet balance (warns if insufficient)
+5. Sets up payments (deposits 2.5 USDFC and approves Warm Storage service)
+6. Uploads all frontend build files to Filecoin
+7. Creates a deployment manifest with all file CIDs
+8. Outputs the CIDs and access URLs
 
 ## Output
 
@@ -87,7 +87,7 @@ Manifest CID: bafybe...
 Index file CID: bafybe...
 Total files uploaded: 42
 
-🌐 Access your app:
+Access your app:
    You can access files using the CIDs above or through Filecoin gateways.
    Example: https://ipfs.io/ipfs/bafybe...
 ```

@@ -70,7 +70,7 @@ Set `ENABLE_KEEPER=true` in `.env` and run `npm start`
 
 ## API Endpoints
 
-### POST `/api/verify-escrow`
+### POST `/api/escrow/verify`
 
 Verify an escrow contract on Etherscan/Basescan.
 

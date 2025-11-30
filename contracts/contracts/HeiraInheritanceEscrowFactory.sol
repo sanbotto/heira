@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "./InheritanceEscrow.sol";
+import "./HeiraInheritanceEscrow.sol";
 
 /**
- * @title InheritanceEscrowFactory
- * @notice Factory contract for deploying InheritanceEscrow instances
+ * @title HeiraInheritanceEscrowFactory
+ * @notice Factory contract for deploying HeiraInheritanceEscrow instances
  * @dev Allows users to create their own escrow contracts
  */
-contract InheritanceEscrowFactory {
+contract HeiraInheritanceEscrowFactory {
     // Array of all deployed escrow contracts
     address[] public escrows;
 
@@ -27,7 +27,7 @@ contract InheritanceEscrowFactory {
     );
 
     /**
-     * @notice Create a new InheritanceEscrow contract
+     * @notice Create a new HeiraInheritanceEscrow contract
      * @param _mainWallet The wallet address to monitor for activity
      * @param _inactivityPeriod Period of inactivity in seconds before execution
      * @return escrowAddress Address of the newly created escrow contract
@@ -38,7 +38,7 @@ contract InheritanceEscrowFactory {
         address _mainWallet,
         uint256 _inactivityPeriod
     ) external returns (address escrowAddress) {
-        InheritanceEscrow escrow = new InheritanceEscrow(
+        HeiraInheritanceEscrow escrow = new HeiraInheritanceEscrow(
             _mainWallet,
             _inactivityPeriod,
             msg.sender

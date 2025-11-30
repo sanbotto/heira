@@ -10,7 +10,9 @@ import "./interfaces/ICoinbaseTrade.sol";
  * @dev Simulates 1:1 swap for testing purposes
  */
 contract MockCoinbaseTrade is ICoinbaseTrade {
-    function executeSwap(SwapParams calldata params) external payable override returns (uint256 amountOut) {
+    function executeSwap(
+        SwapParams calldata params
+    ) external payable override returns (uint256 amountOut) {
         if (params.tokenIn == address(0)) {
             // Native ETH swap - value should be sent with the call
             require(msg.value == params.amountIn, "ETH amount mismatch");
