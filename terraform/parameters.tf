@@ -39,50 +39,38 @@ resource "aws_ssm_parameter" "blockscout_api_key" {
 }
 
 # Factory addresses (auto-updated by contract deployment)
-resource "aws_ssm_parameter" "factory_address_ethereum" {
-  name        = "/${local.env}/${local.service_name}/factory-address-ethereum"
-  description = "FACTORY_ADDRESS_ETHEREUM"
+resource "aws_ssm_parameter" "factory_address_eth_sepolia" {
+  name        = "/${local.env}/${local.service_name}/factory-address-eth-sepolia"
+  description = "FACTORY_ADDRESS_ETH_SEPOLIA"
   type        = "String"
-  value       = "0x0000000000000000000000000000000000000000"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
+  value       = data.external.factory_address_eth_sepolia.result.address != "" ? data.external.factory_address_eth_sepolia.result.address : "0x0000000000000000000000000000000000000000"
 }
 
-resource "aws_ssm_parameter" "factory_address_base" {
-  name        = "/${local.env}/${local.service_name}/factory-address-base"
-  description = "FACTORY_ADDRESS_BASE"
+resource "aws_ssm_parameter" "factory_address_base_sepolia" {
+  name        = "/${local.env}/${local.service_name}/factory-address-base-sepolia"
+  description = "FACTORY_ADDRESS_BASE_SEPOLIA"
   type        = "String"
-  value       = "0x0000000000000000000000000000000000000000"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
+  value       = data.external.factory_address_base_sepolia.result.address != "" ? data.external.factory_address_base_sepolia.result.address : "0x0000000000000000000000000000000000000000"
 }
 
-resource "aws_ssm_parameter" "factory_address_citrea" {
-  name        = "/${local.env}/${local.service_name}/factory-address-citrea"
-  description = "FACTORY_ADDRESS_CITREA"
+resource "aws_ssm_parameter" "factory_address_citrea_testnet" {
+  name        = "/${local.env}/${local.service_name}/factory-address-citrea-testnet"
+  description = "FACTORY_ADDRESS_CITREA_TESTNET"
   type        = "String"
-  value       = "0x0000000000000000000000000000000000000000"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
+  value       = data.external.factory_address_citrea_testnet.result.address != "" ? data.external.factory_address_citrea_testnet.result.address : "0x0000000000000000000000000000000000000000"
 }
 
 # RPC URLs
-resource "aws_ssm_parameter" "mainnet_rpc_url" {
-  name        = "/${local.env}/${local.service_name}/mainnet-rpc-url"
-  description = "MAINNET_RPC_URL"
+resource "aws_ssm_parameter" "eth_mainnet_rpc_url" {
+  name        = "/${local.env}/${local.service_name}/eth-mainnet-rpc-url"
+  description = "ETH_MAINNET_RPC_URL"
   type        = "String"
   value       = "https://eth.llamarpc.com"
 }
 
-resource "aws_ssm_parameter" "sepolia_rpc_url" {
-  name        = "/${local.env}/${local.service_name}/sepolia-rpc-url"
-  description = "SEPOLIA_RPC_URL"
+resource "aws_ssm_parameter" "eth_sepolia_rpc_url" {
+  name        = "/${local.env}/${local.service_name}/eth-sepolia-rpc-url"
+  description = "ETH_SEPOLIA_RPC_URL"
   type        = "String"
   value       = "https://rpc.sepolia.org"
 }
@@ -101,9 +89,9 @@ resource "aws_ssm_parameter" "base_sepolia_rpc_url" {
   value       = "https://sepolia.base.org"
 }
 
-resource "aws_ssm_parameter" "citrea_rpc_url" {
-  name        = "/${local.env}/${local.service_name}/citrea-rpc-url"
-  description = "CITREA_RPC_URL"
+resource "aws_ssm_parameter" "citrea_testnet_rpc_url" {
+  name        = "/${local.env}/${local.service_name}/citrea-testnet-rpc-url"
+  description = "CITREA_TESTNET_RPC_URL"
   type        = "String"
   value       = "https://rpc.testnet.citrea.xyz"
 }

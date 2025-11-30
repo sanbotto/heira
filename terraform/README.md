@@ -75,7 +75,7 @@ All secrets stored in AWS SSM Parameters:
 
 Contracts are automatically deployed when source files change:
 - Monitors `contracts/contracts/**/*.sol`
-- Deploys to: sepolia, baseSepolia, citreaTestnet, mainnet, base
+- Deploys to: eth-sepolia, base-sepolia, citrea-testnet (and eth-mainnet, base-mainnet when enabled)
 - Factory addresses captured and stored in SSM
 
 **Note:** Factory addresses need to be manually extracted from deployment logs and updated in SSM, or use a script to automate this.

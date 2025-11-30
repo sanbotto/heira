@@ -91,28 +91,28 @@ resource "cloudflare_workers_script" "keeper" {
   }
 
   plain_text_binding {
-    name = "FACTORY_ADDRESS_ETHEREUM"
-    text = aws_ssm_parameter.factory_address_ethereum.value
+    name = "FACTORY_ADDRESS_ETH_SEPOLIA"
+    text = aws_ssm_parameter.factory_address_eth_sepolia.value
   }
 
   plain_text_binding {
-    name = "FACTORY_ADDRESS_BASE"
-    text = aws_ssm_parameter.factory_address_base.value
+    name = "FACTORY_ADDRESS_BASE_SEPOLIA"
+    text = aws_ssm_parameter.factory_address_base_sepolia.value
   }
 
   plain_text_binding {
-    name = "FACTORY_ADDRESS_CITREA"
-    text = aws_ssm_parameter.factory_address_citrea.value
+    name = "FACTORY_ADDRESS_CITREA_TESTNET"
+    text = aws_ssm_parameter.factory_address_citrea_testnet.value
   }
 
   plain_text_binding {
-    name = "MAINNET_RPC_URL"
-    text = aws_ssm_parameter.mainnet_rpc_url.value
+    name = "ETH_MAINNET_RPC_URL"
+    text = aws_ssm_parameter.eth_mainnet_rpc_url.value
   }
 
   plain_text_binding {
-    name = "SEPOLIA_RPC_URL"
-    text = aws_ssm_parameter.sepolia_rpc_url.value
+    name = "ETH_SEPOLIA_RPC_URL"
+    text = aws_ssm_parameter.eth_sepolia_rpc_url.value
   }
 
   plain_text_binding {
@@ -126,8 +126,8 @@ resource "cloudflare_workers_script" "keeper" {
   }
 
   plain_text_binding {
-    name = "CITREA_RPC_URL"
-    text = aws_ssm_parameter.citrea_rpc_url.value
+    name = "CITREA_TESTNET_RPC_URL"
+    text = aws_ssm_parameter.citrea_testnet_rpc_url.value
   }
 
   plain_text_binding {

@@ -1,20 +1,20 @@
 // Shared constants
 
 export const VALID_NETWORKS = [
-  "sepolia",
-  "baseSepolia",
-  "mainnet",
-  "base",
-  "citreaTestnet",
+  "eth-sepolia",
+  "eth-mainnet",
+  "base-sepolia",
+  "base-mainnet",
+  "citrea-testnet",
 ];
 
 // Blockscout explorer URLs for each network
 export const BLOCKSCOUT_URLS = {
-  sepolia: "https://eth-sepolia.blockscout.com",
-  baseSepolia: "https://base-sepolia.blockscout.com",
-  mainnet: "https://eth.blockscout.com",
-  base: "https://base.blockscout.com",
-  citreaTestnet: "https://explorer.testnet.citrea.xyz",
+  "eth-sepolia": "https://eth-sepolia.blockscout.com",
+  "eth-mainnet": "https://eth.blockscout.com",
+  "base-sepolia": "https://base-sepolia.blockscout.com",
+  "base-mainnet": "https://base.blockscout.com",
+  "citrea-testnet": "https://explorer.testnet.citrea.xyz",
 };
 
 // Get Blockscout explorer URL for a network

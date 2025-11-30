@@ -18,17 +18,17 @@ output "pages_url" {
   value       = cloudflare_pages_project.app.subdomain
 }
 
-output "factory_address_ethereum" {
-  description = "Ethereum factory address"
-  value       = aws_ssm_parameter.factory_address_ethereum.value
+output "factory_address_eth_sepolia" {
+  description = "Ethereum Sepolia factory address"
+  value       = aws_ssm_parameter.factory_address_eth_sepolia.value
 }
 
-output "factory_address_base" {
-  description = "Base factory address"
-  value       = aws_ssm_parameter.factory_address_base.value
+output "factory_address_base_sepolia" {
+  description = "Base Sepolia factory address"
+  value       = aws_ssm_parameter.factory_address_base_sepolia.value
 }
 
-output "factory_address_citrea" {
-  description = "Citrea factory address"
-  value       = aws_ssm_parameter.factory_address_citrea.value
+output "factory_address_citrea_testnet" {
+  description = "Citrea Testnet factory address"
+  value       = aws_ssm_parameter.factory_address_citrea_testnet.value
 }

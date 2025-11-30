@@ -7,61 +7,75 @@
 function createNetworkConfigs(env) {
   const networks = [];
 
-  // Ethereum (mainnet and sepolia use the same factory)
-  const ethereumFactory = env.FACTORY_ADDRESS_ETHEREUM;
+  // Ethereum Sepolia
+  const ethSepoliaFactory = env.FACTORY_ADDRESS_ETH_SEPOLIA;
   if (
-    ethereumFactory &&
-    ethereumFactory !== "0x0000000000000000000000000000000000000000"
+    ethSepoliaFactory &&
+    ethSepoliaFactory !== "0x0000000000000000000000000000000000000000"
   ) {
-    if (env.MAINNET_RPC_URL) {
+    if (env.ETH_SEPOLIA_RPC_URL) {
       networks.push({
-        name: "mainnet",
-        factoryAddress: ethereumFactory,
-        rpcUrl: env.MAINNET_RPC_URL,
-      });
-    }
-    if (env.SEPOLIA_RPC_URL) {
-      networks.push({
-        name: "sepolia",
-        factoryAddress: ethereumFactory,
-        rpcUrl: env.SEPOLIA_RPC_URL,
+        name: "eth-sepolia",
+        factoryAddress: ethSepoliaFactory,
+        rpcUrl: env.ETH_SEPOLIA_RPC_URL,
       });
     }
   }
 
-  // Base (mainnet and sepolia use the same factory)
-  const baseFactory = env.FACTORY_ADDRESS_BASE;
+  // Ethereum Mainnet (uses same factory as sepolia for now, can be separate later)
   if (
-    baseFactory &&
-    baseFactory !== "0x0000000000000000000000000000000000000000"
+    ethSepoliaFactory &&
+    ethSepoliaFactory !== "0x0000000000000000000000000000000000000000"
   ) {
-    if (env.BASE_RPC_URL) {
+    if (env.ETH_MAINNET_RPC_URL) {
       networks.push({
-        name: "base",
-        factoryAddress: baseFactory,
-        rpcUrl: env.BASE_RPC_URL,
+        name: "eth-mainnet",
+        factoryAddress: ethSepoliaFactory,
+        rpcUrl: env.ETH_MAINNET_RPC_URL,
       });
     }
+  }
+
+  // Base Sepolia
+  const baseSepoliaFactory = env.FACTORY_ADDRESS_BASE_SEPOLIA;
+  if (
+    baseSepoliaFactory &&
+    baseSepoliaFactory !== "0x0000000000000000000000000000000000000000"
+  ) {
     if (env.BASE_SEPOLIA_RPC_URL) {
       networks.push({
-        name: "baseSepolia",
-        factoryAddress: baseFactory,
+        name: "base-sepolia",
+        factoryAddress: baseSepoliaFactory,
         rpcUrl: env.BASE_SEPOLIA_RPC_URL,
       });
     }
   }
 
+  // Base Mainnet (uses same factory as sepolia for now, can be separate later)
+  if (
+    baseSepoliaFactory &&
+    baseSepoliaFactory !== "0x0000000000000000000000000000000000000000"
+  ) {
+    if (env.BASE_RPC_URL) {
+      networks.push({
+        name: "base-mainnet",
+        factoryAddress: baseSepoliaFactory,
+        rpcUrl: env.BASE_RPC_URL,
+      });
+    }
+  }
+
   // Citrea Testnet
-  const citreaFactory = env.FACTORY_ADDRESS_CITREA;
+  const citreaFactory = env.FACTORY_ADDRESS_CITREA_TESTNET;
   if (
     citreaFactory &&
     citreaFactory !== "0x0000000000000000000000000000000000000000"
   ) {
-    if (env.CITREA_RPC_URL) {
+    if (env.CITREA_TESTNET_RPC_URL) {
       networks.push({
-        name: "citreaTestnet",
+        name: "citrea-testnet",
         factoryAddress: citreaFactory,
-        rpcUrl: env.CITREA_RPC_URL,
+        rpcUrl: env.CITREA_TESTNET_RPC_URL,
       });
     }
   }
@@ -92,7 +106,7 @@ export default {
 
     if (networks.length === 0) {
       console.error(
-        "No networks configured. Set FACTORY_ADDRESS_ETHEREUM, FACTORY_ADDRESS_BASE, and/or FACTORY_ADDRESS_CITREA environment variables along with corresponding RPC URLs.",
+        "No networks configured. Set FACTORY_ADDRESS_ETH_SEPOLIA, FACTORY_ADDRESS_BASE_SEPOLIA, and/or FACTORY_ADDRESS_CITREA_TESTNET environment variables along with corresponding RPC URLs.",
       );
       return;
     }

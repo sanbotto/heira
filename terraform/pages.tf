@@ -25,9 +25,9 @@ resource "cloudflare_pages_project" "app" {
       compatibility_date    = local.compatibility_date
       environment_variables = {
         VITE_BACKEND_API_URL = "https://api.${local.domain_name}"
-        VITE_FACTORY_ADDRESS_ETHEREUM = aws_ssm_parameter.factory_address_ethereum.value
-        VITE_FACTORY_ADDRESS_BASE     = aws_ssm_parameter.factory_address_base.value
-        VITE_FACTORY_ADDRESS_CITREA   = aws_ssm_parameter.factory_address_citrea.value
+        VITE_FACTORY_ADDRESS_ETH_SEPOLIA = aws_ssm_parameter.factory_address_eth_sepolia.value
+        VITE_FACTORY_ADDRESS_BASE_SEPOLIA = aws_ssm_parameter.factory_address_base_sepolia.value
+        VITE_FACTORY_ADDRESS_CITREA_TESTNET = aws_ssm_parameter.factory_address_citrea_testnet.value
       }
     }
   }

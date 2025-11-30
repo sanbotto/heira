@@ -4,12 +4,13 @@ resource "cloudflare_d1_database" "heira" {
 }
 
 # Execute schema after database is created
-resource "null_resource" "d1_schema" {
+resource "terraform_data" "d1_schema" {
   depends_on = [cloudflare_d1_database.heira]
 
-  triggers = {
-    database_id = cloudflare_d1_database.heira.id
-  }
+  triggers_replace = [
+    filemd5("${path.module}/../workers/shared/d1-schema.sql"),
+    cloudflare_d1_database.heira.id
+  ]
 
   provisioner "local-exec" {
     command = <<-EOT
