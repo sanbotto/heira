@@ -38,7 +38,7 @@ Escrow contracts are created dynamically by users through the factory. To automa
 
 1. **After creating an escrow** - Use the transaction hash verification script (see Option 1 above)
 2. **Batch verification** - Use the auto-verify script to verify all escrows from a factory
-3. **Integration** - You can integrate the verification script into your frontend/backend workflow
+3. **Integration** - You can integrate the verification script into your frontend workflow
 
 ## Manual Verification
 

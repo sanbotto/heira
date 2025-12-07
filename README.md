@@ -20,9 +20,10 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 - ✅ Dashboard with countdown timers
 
 ### Phase 2 (Implemented)
-- ✅ Filecoin hosting (see [FILECOIN_DEPLOYMENT.md](./FILECOIN_DEPLOYMENT.md))
-- ✅ Backend API and keeper service (see [backend/README.md](./backend/README.md))
-- ✅ Fluence deployment
+- ✅ Full-stack SvelteKit application with Cloudflare Pages deployment
+- ✅ Backend API routes integrated into frontend
+- ✅ D1 database for escrow storage
+- ✅ Keeper service as standalone Cloudflare Worker (cron-triggered)
 
 ### Phase 3 (WIP)
 - ✅ BTC support
@@ -38,17 +39,21 @@ heira/
 │   ├── HeiraInheritanceEscrow.sol
 │   ├── HeiraInheritanceEscrowFactory.sol
 │   └── test/
-├── frontend/          # SvelteKit application (static site)
-│   └── src/
-│       ├── lib/       # Utilities (wallet, ENS, tokens, prices)
-│       ├── components/
-│       └── routes/
-├── backend/           # Node.js API and keeper service
+├── frontend/          # Full-stack SvelteKit application
 │   ├── src/
-│   │   ├── routes/    # API endpoints
-│   │   └── services/  # Keeper service for escrow monitoring
-│   └── README.md
-└── scripts/           # Deployment scripts
+│   │   ├── lib/       # Utilities (wallet, ENS, tokens, prices)
+│   │   │   └── server/ # Server-side utilities (D1 adapter, storage)
+│   │   ├── components/
+│   │   ├── routes/    # Pages and API routes
+│   │   │   └── api/   # API endpoints (escrow, prices, verification)
+│   │   └── hooks.server.ts
+│   ├── migrations/   # D1 database migrations
+│   └── wrangler.toml # Cloudflare configuration
+├── workers/
+│   └── keeper/        # Standalone keeper worker (cron-triggered)
+│       ├── src/
+│       └── wrangler.toml
+└── contracts/         # HardHat smart contracts
 ```
 
 ## Quick Start
@@ -69,27 +74,19 @@ npx hardhat test
 npx hardhat run scripts/deploy.js --network sepolia
 ```
 
-### Frontend
+### Frontend (Full-Stack App)
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env
-# Edit .env with API keys, factory addresses, and backend URL
+# Edit .env with API keys and factory addresses
+cp wrangler.toml.example wrangler.toml
+# Edit wrangler.toml with D1 database configuration
 npm run dev
 ```
 
-### Backend
-
-```bash
-cd backend
-npm install
-cp .env.example .env
-# Edit .env with private key and network configuration
-npm run dev
-```
-
-See [backend/README.md](./backend/README.md) for detailed backend setup instructions.
+The frontend now includes all API routes and uses D1 database for storage.
 
 ## Testing & Deployment
 
@@ -101,7 +98,7 @@ See [TESTING.md](./TESTING.md) for detailed instructions on:
 
 ## Environment Variables
 
-See `contracts/.env.example`, `frontend/.env.example`, and `backend/.env.example` for required environment variables.
+See `contracts/.env.example` and `frontend/.env.example` for required environment variables. The frontend now handles all API functionality, and the keeper worker has its own configuration in `workers/keeper/wrangler.toml`.
 
 ## Development
 
@@ -120,10 +117,13 @@ npm run check
 ### Deployment
 
 1. Deploy factory contract to testnet/mainnet
-2. Update `frontend/.env` with factory address and `VITE_BACKEND_API_URL`
-3. Deploy backend API (see [backend/README.md](./backend/README.md))
-4. Build frontend: `cd frontend && npm run build`
-5. Deploy to Filecoin: See [FILECOIN_DEPLOYMENT.md](./FILECOIN_DEPLOYMENT.md)
+2. Create D1 database in Cloudflare dashboard
+3. Run migrations: `wrangler d1 execute heira-escrows-db --file=./migrations/0001_initial.sql`
+4. Update `frontend/.env` with factory addresses and API keys
+5. Configure environment variables in Cloudflare Pages
+6. Build frontend: `cd frontend && npm run build`
+7. Deploy to Cloudflare Pages (connect GitHub repo or use Wrangler)
+8. Deploy keeper worker: `cd workers/keeper && npm run deploy`
 
 ## License
 

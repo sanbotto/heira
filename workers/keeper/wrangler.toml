@@ -1,26 +1,26 @@
 name = "heira-keeper"
+compatibility_date = "2024-01-01"
 main = "src/index.ts"
-compatibility_date = "2024-11-27"
 
-# Cron trigger - runs daily at midnight UTC
-[triggers]
-crons = ["0 0 * * *"]
-
-# D1 Database binding
+# D1 Database binding (shared with main app)
 [[d1_databases]]
-binding = "DB"
-database_name = "heira-db"
-database_id = "" # Will be set after creating the database
+binding = "ESCROWS_DB"
+database_name = "heira-escrows-db"
+database_id = "your-database-id-here"
 
-# Secrets (set via wrangler secret put or Cloudflare dashboard)
-# PRIVATE_KEY
-# MAILPACE_API_TOKEN
-# FACTORY_ADDRESS_ETHEREUM
-# FACTORY_ADDRESS_BASE
-# FACTORY_ADDRESS_CITREA
-# MAINNET_RPC_URL
-# SEPOLIA_RPC_URL
-# BASE_RPC_URL
-# BASE_SEPOLIA_RPC_URL
-# CITREA_RPC_URL
-# KEEPER_CHECK_INTERVAL_MS (optional, defaults to 300000)
+# Cron trigger - runs every 5 minutes
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Environment variables
+[vars]
+PRIVATE_KEY = "your_private_key_here"
+FACTORY_ADDRESS_ETHEREUM = "0x0000000000000000000000000000000000000000"
+FACTORY_ADDRESS_BASE = "0x0000000000000000000000000000000000000000"
+FACTORY_ADDRESS_CITREA = "0x0000000000000000000000000000000000000000"
+MAINNET_RPC_URL = "https://eth.llamarpc.com"
+SEPOLIA_RPC_URL = "https://rpc.sepolia.org"
+BASE_RPC_URL = "https://mainnet.base.org"
+BASE_SEPOLIA_RPC_URL = "https://sepolia.base.org"
+CITREA_RPC_URL = "https://rpc.testnet.citrea.xyz"
+KEEPER_CHECK_INTERVAL_MS = "300000"
