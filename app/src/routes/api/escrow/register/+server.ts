@@ -15,7 +15,7 @@ function getRpcUrlForNetwork(networkName: string, env: Record<string, string>): 
     sepolia: env.SEPOLIA_RPC_URL || '',
     base: env.BASE_RPC_URL || '',
     baseSepolia: env.BASE_SEPOLIA_RPC_URL || '',
-    citreaTestnet: env.CITREA_RPC_URL || '',
+    citreaTestnet: env.CITREA_TESTNET_RPC_URL || '',
   };
 
   return rpcMap[networkName] || null;
@@ -30,7 +30,7 @@ function getRpcEnvVarName(networkName: string): string {
     sepolia: 'SEPOLIA_RPC_URL',
     base: 'BASE_RPC_URL',
     baseSepolia: 'BASE_SEPOLIA_RPC_URL',
-    citreaTestnet: 'CITREA_RPC_URL',
+    citreaTestnet: 'CITREA_TESTNET_RPC_URL',
   };
 
   return envVarMap[networkName] || 'RPC_URL';
