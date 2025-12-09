@@ -44,7 +44,7 @@ npm test
 npx hardhat run scripts/deploy.js --network sepolia
 
 # Copy the factory address and add to app/.env:
-# VITE_FACTORY_ADDRESS_ETHEREUM=0x...
+# VITE_FACTORY_ADDRESS_ETHEREUM_SEPOLIA=0x...
 ```
 
 ### 5. Run Frontend

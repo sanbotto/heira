@@ -24,11 +24,11 @@
       // Citrea Testnet uses its own env var
       let factoryAddress: Address;
       if ($wallet.chainId === sepolia.id) {
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM_SEPOLIA as Address;
       } else if ($wallet.chainId === 5115) {
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA_TESTNET as Address;
       } else {
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE as Address;
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE_SEPOLIA as Address;
       }
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {

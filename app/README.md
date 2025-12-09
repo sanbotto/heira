@@ -96,23 +96,15 @@ npm run preview
 
 ## Environment Variables
 
-See `.env.example` for required environment variables:
-
+- `BLOCKSCOUT_API_KEY` - Blockscout API key for contract verification
+- `VITE_FACTORY_ADDRESS_BASE_SEPOLIA` - Factory contract address on Base
+- `VITE_FACTORY_ADDRESS_CITREA_TESTNET` - Factory contract address on Citrea Testnet
+- `VITE_FACTORY_ADDRESS_ETHEREUM_SEPOLIA` - Factory contract address on Ethereum/Sepolia
 - `VITE_WALLETCONNECT_PROJECT_ID` - WalletConnect project ID
-- `VITE_COINBASE_PROJECT_ID` - Coinbase CDP project ID
-- `VITE_COINBASE_API_KEY_ID` - Coinbase API key ID
-- `VITE_COINBASE_API_KEY_SECRET` - Coinbase API key secret
-- `VITE_CHAINLINK_ORG_ID` - Chainlink organization ID
-- `VITE_WORLD_ID_API_KEY` - World ID API key
-- `VITE_WORLD_ID_APP_ID` - World ID app ID
 - `ONEINCH_API_KEY` - 1inch API key (server-side)
-- `VITE_FACTORY_ADDRESS_ETHEREUM` - Factory contract address on Ethereum/Sepolia
-- `VITE_FACTORY_ADDRESS_BASE` - Factory contract address on Base
-- `VITE_FACTORY_ADDRESS_CITREA` - Factory contract address on Citrea Testnet
-- `SEPOLIA_RPC_URL` - Sepolia RPC URL (server-side)
 - `BASE_SEPOLIA_RPC_URL` - Base Sepolia RPC URL (server-side)
 - `CITREA_TESTNET_RPC_URL` - Citrea Testnet RPC URL (server-side)
-- `BLOCKSCOUT_API_KEY` - Blockscout API key for contract verification
+- `ETHEREUM_SEPOLIA_RPC_URL` - Sepolia RPC URL (server-side)
 
 ## Deployment
 

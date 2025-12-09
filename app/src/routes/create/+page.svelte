@@ -115,7 +115,6 @@
     creating = true;
     showToastMessage('Preparing escrow creation...', 'info');
 
-
     try {
       // Use mainWallet as-is, fallback to connected wallet if empty
       const mainWalletToUse = mainWallet || ($wallet.address as string);
@@ -164,15 +163,15 @@
       let envVarName: string;
 
       if ($wallet.chainId === sepolia.id) {
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
-        envVarName = 'VITE_FACTORY_ADDRESS_ETHEREUM';
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM_SEPOLIA as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_ETHEREUM_SEPOLIA';
       } else if ($wallet.chainId === 5115) {
         // Citrea Testnet
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;
-        envVarName = 'VITE_FACTORY_ADDRESS_CITREA';
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA_TESTNET as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_CITREA_TESTNET';
       } else {
-        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE as Address;
-        envVarName = 'VITE_FACTORY_ADDRESS_BASE';
+        factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_BASE_SEPOLIA as Address;
+        envVarName = 'VITE_FACTORY_ADDRESS_BASE_SEPOLIA';
       }
 
       if (!factoryAddress || factoryAddress === '0x0000000000000000000000000000000000000000') {

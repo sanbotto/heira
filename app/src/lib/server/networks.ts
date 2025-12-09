@@ -16,7 +16,7 @@ export const NETWORK_CONFIGS: Record<SupportedNetwork, NetworkConfig> = {
   sepolia: {
     name: 'sepolia',
     chainId: 11155111,
-    rpcEnvVar: 'SEPOLIA_RPC_URL',
+    rpcEnvVar: 'ETHEREUM_SEPOLIA_RPC_URL',
     explorerUrl: 'https://sepolia.etherscan.io',
   },
   baseSepolia: {

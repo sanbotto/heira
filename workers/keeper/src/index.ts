@@ -21,7 +21,7 @@ interface Env {
   FACTORY_ADDRESS_BASE?: string;
   FACTORY_ADDRESS_CITREA?: string;
   MAINNET_RPC_URL?: string;
-  SEPOLIA_RPC_URL?: string;
+  ETHEREUM_SEPOLIA_RPC_URL?: string;
   BASE_RPC_URL?: string;
   BASE_SEPOLIA_RPC_URL?: string;
   CITREA_TESTNET_RPC_URL?: string;
@@ -39,11 +39,11 @@ function getNetworksFromEnv(env: Env): NetworkConfig[] {
   // Ethereum (mainnet and sepolia use the same factory)
   const ethereumFactory = env.FACTORY_ADDRESS_ETHEREUM;
   if (ethereumFactory && ethereumFactory !== '0x0000000000000000000000000000000000000000') {
-    if (env.SEPOLIA_RPC_URL) {
+    if (env.ETHEREUM_SEPOLIA_RPC_URL) {
       networks.push({
         name: 'sepolia',
         factoryAddress: ethereumFactory,
-        rpcUrl: env.SEPOLIA_RPC_URL,
+        rpcUrl: env.ETHEREUM_SEPOLIA_RPC_URL,
       });
     }
   }

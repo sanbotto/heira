@@ -11,7 +11,7 @@ database_id = "local"
 [vars]
 DEV_ENV = "local"
 ONEINCH_API_KEY = "your_1inch_api_key"
-SEPOLIA_RPC_URL = "https://rpc.sepolia.org"
+ETHEREUM_SEPOLIA_RPC_URL = "https://rpc.sepolia.org"
 BASE_SEPOLIA_RPC_URL = "https://sepolia.base.org"
 CITREA_TESTNET_RPC_URL = "https://rpc.testnet.citrea.xyz"
 BLOCKSCOUT_API_KEY = "your_blockscout_api_key"
