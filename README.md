@@ -11,7 +11,6 @@ Heira is a Web3 dApp for handling inheritances through escrow smart contracts. U
 
 ### Phase 1 (Implemented)
 - ✅ Smart contract escrow system with factory pattern
-- ✅ ENS name and avatar support
 - ✅ Wallet connection (MetaMask, WalletConnect, Ledger)
 - ✅ Multichain token balance display (Ethereum, Base)
 - ✅ Chainlink price feeds integration
@@ -41,7 +40,7 @@ heira/
 │   └── test/
 ├── frontend/          # Full-stack SvelteKit application
 │   ├── src/
-│   │   ├── lib/       # Utilities (wallet, ENS, tokens, prices)
+│   │   ├── lib/       # Utilities (wallet, tokens, prices)
 │   │   │   └── server/ # Server-side utilities (D1 adapter, storage)
 │   │   ├── components/
 │   │   ├── routes/    # Pages and API routes

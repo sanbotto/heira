@@ -109,8 +109,6 @@ contract HeiraInheritanceEscrow is Ownable, ReentrancyGuard {
      * @param _tokenAddress Token to receive (zero address for native ETH)
      * @param _shouldSwap Whether to swap before sending
      * @param _targetToken Target token if swapping (zero address if not swapping)
-     * @dev Note: The frontend resolves ENS names to addresses before calling this function.
-     *      The address provided here may have been resolved from an ENS name.
      */
     function addBeneficiary(
         address _recipient,

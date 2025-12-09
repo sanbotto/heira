@@ -30,23 +30,26 @@ const CITREA_TOKEN_ADDRESSES: Record<string, string> = {
 };
 
 function getPriceLookupChainId(chainId: number): number {
-  if (chainId === 1 || chainId === 11155111 || chainId === 5115) {
-    return 1; // Ethereum mainnet
+  if (chainId === 11155111) {
+    return 11155111; // Sepolia testnet
   }
-  if (chainId === 8453 || chainId === 84532) {
-    return 8453; // Base mainnet
+  if (chainId === 84532) {
+    return 84532; // Base Sepolia testnet
   }
-  return 1; // Default to Ethereum mainnet
+  if (chainId === 5115) {
+    return 11155111; // Citrea Testnet - use Sepolia as fallback
+  }
+  return 11155111; // Default to Sepolia testnet
 }
 
 function getTokenAddresses(chainId: number): Record<string, string> {
-  const lookupChainId = getPriceLookupChainId(chainId);
-  if (lookupChainId === 8453) {
+  if (chainId === 84532) {
     return BASE_TOKEN_ADDRESSES;
   }
   if (chainId === 5115) {
     return CITREA_TOKEN_ADDRESSES;
   }
+  // Default to Sepolia/Ethereum testnet addresses
   return ETHEREUM_TOKEN_ADDRESSES;
 }
 

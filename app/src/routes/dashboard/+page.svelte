@@ -11,9 +11,10 @@
     getTimeUntilExecution,
     deactivateEscrow,
   } from '../../lib/escrow';
-  import { mainnet, sepolia } from 'viem/chains';
+  import { sepolia } from 'viem/chains';
   import type { Address } from 'viem';
   import { getPublicClient } from '../../lib/wallet';
+  import { getNetworkName } from '../../lib/server/networks';
 
   let escrows: Array<{
     address: string;
@@ -36,14 +37,6 @@
     showToast = true;
   }
 
-  function getNetworkName(chainId: number): string {
-    if (chainId === mainnet.id) return 'mainnet';
-    if (chainId === sepolia.id) return 'sepolia';
-    if (chainId === 8453) return 'base';
-    if (chainId === 84532) return 'baseSepolia';
-    if (chainId === 5115) return 'citreaTestnet';
-    return `chain-${chainId}`;
-  }
 
   async function loadEscrows() {
     if (!$wallet.address || !$wallet.chainId) {
@@ -56,7 +49,7 @@
       // Sepolia uses the same env var as Ethereum mainnet
       // Citrea Testnet uses its own env var
       let factoryAddress: Address;
-      if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
+      if ($wallet.chainId === sepolia.id) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
       } else if ($wallet.chainId === 5115) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;
@@ -140,9 +133,7 @@
     if (!$wallet.chainId) return '#';
 
     const baseUrls: Record<number, string> = {
-      1: 'https://etherscan.io/address/',
       11155111: 'https://sepolia.etherscan.io/address/',
-      8453: 'https://basescan.org/address/',
       84532: 'https://sepolia.basescan.org/address/',
       5115: 'https://explorer.testnet.citrea.xyz/address/',
     };
@@ -251,9 +242,7 @@
     if (!$wallet.chainId) return '#';
 
     const baseUrls: Record<number, string> = {
-      1: 'https://etherscan.io/tx/',
       11155111: 'https://sepolia.etherscan.io/tx/',
-      8453: 'https://basescan.org/tx/',
       84532: 'https://sepolia.basescan.org/tx/',
       5115: 'https://explorer.testnet.citrea.xyz/tx/',
     };

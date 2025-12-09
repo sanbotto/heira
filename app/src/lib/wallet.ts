@@ -1,5 +1,4 @@
 import { createPublicClient, createWalletClient, http, custom, type Address } from 'viem';
-import { mainnet } from 'viem/chains';
 import {
   getAccount,
   getConnections,
@@ -16,8 +15,8 @@ export { supportedChains, type SupportedChainId };
 
 // Create public clients for each chain (for direct access if needed)
 export const publicClients = {
-  [mainnet.id]: createPublicClient({
-    chain: mainnet,
+  [supportedChains[0].id]: createPublicClient({
+    chain: supportedChains[0],
     transport: http(),
   }),
   [supportedChains[1].id]: createPublicClient({
@@ -35,14 +34,12 @@ export interface WalletState {
   address: Address | null;
   chainId: SupportedChainId | null;
   isConnected: boolean;
-  ensName: string | null;
 }
 
 let walletState: WalletState = {
   address: null,
   chainId: null,
   isConnected: false,
-  ensName: null,
 };
 
 const listeners = new Set<(state: WalletState) => void>();
@@ -64,19 +61,7 @@ async function updateWalletState() {
     address: account.address as Address | null,
     chainId: account.chainId as SupportedChainId | null,
     isConnected: account.isConnected,
-    ensName: null,
   };
-
-  // Resolve ENS name if on mainnet
-  if (walletState.address && walletState.chainId === mainnet.id) {
-    try {
-      const client = getWagmiPublicClient(wagmiConfig, { chainId: mainnet.id });
-      const ensName = await client.getEnsName({ address: walletState.address });
-      walletState.ensName = ensName;
-    } catch (error) {
-      console.error('Failed to resolve ENS name:', error);
-    }
-  }
 
   notify();
 }
@@ -91,22 +76,8 @@ export function updateWalletStateFromAccount(account: {
     address: (account.address as Address | null) || null,
     chainId: (account.chainId as SupportedChainId | null) || null,
     isConnected: account.isConnected,
-    ensName: walletState.ensName, // Preserve existing ENS name
   };
 
-  // Resolve ENS name if on mainnet
-  if (walletState.address && walletState.chainId === mainnet.id && !walletState.ensName) {
-    const client = publicClients[mainnet.id];
-    client
-      .getEnsName({ address: walletState.address })
-      .then(ensName => {
-        walletState.ensName = ensName;
-        notify();
-      })
-      .catch(error => {
-        console.error('Failed to resolve ENS name:', error);
-      });
-  }
 
   notify();
 }

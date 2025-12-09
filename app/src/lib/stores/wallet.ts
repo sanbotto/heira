@@ -12,7 +12,6 @@ export interface WalletStore {
   address: Address | null;
   chainId: SupportedChainId | null;
   isConnected: boolean;
-  ensName: string | null;
 }
 
 function createWalletStore() {
@@ -24,7 +23,6 @@ function createWalletStore() {
       address: state.address,
       chainId: state.chainId,
       isConnected: state.isConnected,
-      ensName: state.ensName,
     });
   });
 

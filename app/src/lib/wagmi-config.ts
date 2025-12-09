@@ -1,7 +1,6 @@
 import { createConfig, http } from '@wagmi/core';
-import { mainnet, base, sepolia, baseSepolia } from 'viem/chains';
+import { sepolia, baseSepolia } from 'viem/chains';
 import { metaMask, walletConnect, injected } from '@wagmi/connectors';
-import type { Chain } from 'viem';
 
 // Define Citrea Testnet
 export const citreaTestnet = {
@@ -31,7 +30,7 @@ export const citreaTestnet = {
   iconBackground: '#f0781b',
 } as const;
 
-export const supportedChains = [mainnet, base, sepolia, baseSepolia, citreaTestnet] as const;
+export const supportedChains = [sepolia, baseSepolia, citreaTestnet] as const;
 export type SupportedChainId = (typeof supportedChains)[number]['id'];
 
 // Get WalletConnect project ID from environment
@@ -51,7 +50,5 @@ export const wagmiConfig = createConfig({
     [supportedChains[0].id]: http(),
     [supportedChains[1].id]: http(),
     [supportedChains[2].id]: http(),
-    [supportedChains[3].id]: http(),
-    [supportedChains[4].id]: http(),
   },
 });

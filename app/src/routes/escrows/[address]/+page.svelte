@@ -12,8 +12,9 @@
   import { getPublicClient } from '../../../lib/wallet';
   import ConfirmationModal from '../../../lib/components/ConfirmationModal.svelte';
   import Toast from '../../../lib/components/Toast.svelte';
-  import { mainnet, sepolia } from 'viem/chains';
+  import { sepolia } from 'viem/chains';
   import type { Address } from 'viem';
+  import { getNetworkName } from '../../../lib/server/networks';
 
   let loading = true;
   let error: string | null = null;
@@ -142,14 +143,12 @@
   function getChainName(chainId: number | bigint): string {
     const id = Number(chainId);
     switch (id) {
-      case 1:
-        return 'Ethereum';
       case 11155111:
         return 'Sepolia';
-      case 8453:
-        return 'Base';
       case 84532:
         return 'Base Sepolia';
+      case 5115:
+        return 'Citrea Testnet';
       default:
         return `Chain ${id}`;
     }
@@ -164,9 +163,7 @@
     if (!$wallet.chainId) return '#';
 
     const baseUrls: Record<number, string> = {
-      1: 'https://etherscan.io/address/',
       11155111: 'https://sepolia.etherscan.io/address/',
-      8453: 'https://basescan.org/address/',
       84532: 'https://sepolia.basescan.org/address/',
       5115: 'https://explorer.testnet.citrea.xyz/address/',
     };
@@ -178,10 +175,8 @@
     if (!$wallet.chainId) return 'Etherscan';
 
     switch ($wallet.chainId) {
-      case 1:
       case 11155111:
         return 'Etherscan';
-      case 8453:
       case 84532:
         return 'Basescan';
       case 5115:
@@ -231,14 +226,6 @@
     showConfirmModal = false;
   }
 
-  function getNetworkName(chainId: number): string {
-    if (chainId === mainnet.id) return 'mainnet';
-    if (chainId === sepolia.id) return 'sepolia';
-    if (chainId === 8453) return 'base';
-    if (chainId === 84532) return 'baseSepolia';
-    if (chainId === 5115) return 'citreaTestnet';
-    return `chain-${chainId}`;
-  }
 
   async function handleEnableEmail() {
     if (!emailInput.trim() || !$wallet.chainId || !escrowAddress) {

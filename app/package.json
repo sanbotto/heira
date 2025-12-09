@@ -17,7 +17,6 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@ensdomains/content-hash": "^3.0.0",
     "@sveltejs/adapter-cloudflare": "^7.2.4",
     "@cloudflare/workers-types": "^4.20241106.0",
     "@sveltejs/kit": "^2.48.5",

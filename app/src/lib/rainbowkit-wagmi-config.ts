@@ -1,6 +1,6 @@
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { createConfig, http } from 'wagmi';
-import { mainnet, base, sepolia, baseSepolia } from 'wagmi/chains';
+import { sepolia, baseSepolia } from 'wagmi/chains';
 import {
   ledgerWallet,
   metaMaskWallet,
@@ -10,7 +10,7 @@ import {
 } from '@rainbow-me/rainbowkit/wallets';
 import { citreaTestnet } from './wagmi-config';
 
-export const supportedChains = [mainnet, base, sepolia, baseSepolia, citreaTestnet] as const;
+export const supportedChains = [sepolia, baseSepolia, citreaTestnet] as const;
 
 // Get WalletConnect project ID from environment
 const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || '';
@@ -34,8 +34,6 @@ export const wagmiConfigForRainbowKit = createConfig({
   connectors,
   chains: supportedChains,
   transports: {
-    [mainnet.id]: http(),
-    [base.id]: http(),
     [sepolia.id]: http(),
     [baseSepolia.id]: http(),
     [citreaTestnet.id]: http(),

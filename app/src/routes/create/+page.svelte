@@ -2,10 +2,11 @@
   import { goto } from '$app/navigation';
   import { wallet } from '../../lib/stores/wallet';
   import { createEscrow, type BeneficiaryConfig, type TokenConfig } from '../../lib/escrow';
-  import { mainnet, sepolia } from 'viem/chains';
+  import { sepolia } from 'viem/chains';
   import type { Address } from 'viem';
   import { supportedChains, type SupportedChainId } from '../../lib/wallet';
   import Toast from '../../lib/components/Toast.svelte';
+  import { getNetworkName } from '../../lib/server/networks';
 
   let mainWallet: string = '';
   let inactivityPeriod: number = 90; // days
@@ -27,14 +28,13 @@
     address: string;
     percentage: number;
     chainId: number;
-  }> = [{ address: '', percentage: 0, chainId: 1 }];
+  }> = [{ address: '', percentage: 0, chainId: 11155111 }];
 
   // USDC token addresses
   const USDC_ADDRESSES: Record<number, Address> = {
-    1: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48' as Address, // Ethereum Mainnet
     11155111: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Sepolia
-    8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address, // Base Mainnet
     84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as Address, // Base Sepolia
+    5115: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as Address, // Citrea Testnet
   };
 
   let creating = false;
@@ -71,7 +71,7 @@
 
   // Add a new empty row
   function addRow() {
-    beneficiaryRows = [...beneficiaryRows, { address: '', percentage: 0, chainId: 1 }];
+    beneficiaryRows = [...beneficiaryRows, { address: '', percentage: 0, chainId: 11155111 }];
   }
 
   // Remove a row
@@ -80,16 +80,15 @@
       beneficiaryRows = beneficiaryRows.filter((_, i) => i !== index);
     } else {
       // If only one row, just clear it
-      beneficiaryRows = [{ address: '', percentage: 0, chainId: 1 }];
+      beneficiaryRows = [{ address: '', percentage: 0, chainId: 11155111 }];
     }
   }
 
   // Get valid beneficiaries (rows with both address and percentage)
-  // Note: recipient can be ENS name or address string - contract will resolve
   $: validBeneficiaries = beneficiaryRows
     .filter(row => row.address && row.percentage > 0)
     .map(row => ({
-      recipient: row.address, // Can be ENS name or address
+      recipient: row.address,
       percentage: row.percentage,
       chainId: row.chainId as any,
     }));
@@ -116,18 +115,9 @@
     creating = true;
     showToastMessage('Preparing escrow creation...', 'info');
 
-    // Helper function to get network name from chain ID
-    function getNetworkName(chainId: number): string {
-      if (chainId === mainnet.id) return 'mainnet';
-      if (chainId === sepolia.id) return 'sepolia';
-      if (chainId === 8453) return 'base';
-      if (chainId === 84532) return 'baseSepolia';
-      if (chainId === 5115) return 'citreaTestnet';
-      return `chain-${chainId}`;
-    }
 
     try {
-      // Use mainWallet as-is (can be ENS name or address), fallback to connected wallet if empty
+      // Use mainWallet as-is, fallback to connected wallet if empty
       const mainWalletToUse = mainWallet || ($wallet.address as string);
       const inactivityPeriodSeconds = inactivityPeriod * 24 * 60 * 60;
 
@@ -151,7 +141,7 @@
           // If swapTokensToUSDC is false, tokens are sent as-is (native)
 
           return {
-            recipient: row.address, // Can be ENS name or address string
+            recipient: row.address,
             percentage: row.percentage,
             chainId: row.chainId as any,
             tokenAddress,
@@ -173,7 +163,7 @@
       let factoryAddress: Address;
       let envVarName: string;
 
-      if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
+      if ($wallet.chainId === sepolia.id) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
         envVarName = 'VITE_FACTORY_ADDRESS_ETHEREUM';
       } else if ($wallet.chainId === 5115) {
@@ -347,7 +337,7 @@
                     <input
                       type="text"
                       bind:value={row.address}
-                      placeholder="0x... or name.eth"
+                      placeholder="0x..."
                       class="form-input"
                     />
                   </td>

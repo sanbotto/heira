@@ -17,10 +17,8 @@ export interface TokenBalance {
 
 // The Graph public subgraph endpoints
 const SUBGRAPH_ENDPOINTS: Record<number, string | null> = {
-  1: 'https://gateway.thegraph.com/api/subgraphs/id/5zvR82QoaXYFyDEKLZ9t6v9adgnptxYpKpSbxtgVENFV', // Ethereum mainnet
   11155111:
     'https://gateway.thegraph.com/api/subgraphs/id/F2bsVgAZjpkgRfGj4okjDPjJ4Nep8GbTFa29BVABF2y4', // Ethereum Sepolia
-  8453: 'https://gateway.thegraph.com/api/subgraphs/id/HNCFA9TyBqpo5qpe6QreQABAA1kV8g46mhkCcicu6v2R', // Base mainnet
   84532:
     'https://gateway.thegraph.com/api/subgraphs/id/BDp94TTkobSoznjvUp65nb1uv6fUvRLHJLVCbQqmXom3', // Base Sepolia
 };
@@ -34,7 +32,7 @@ export async function getTokenBalances(address: string, chainId?: number): Promi
 
   // If chainId is provided, query that chain
   // Otherwise query all supported chains
-  const chainsToQuery = chainId ? [chainId] : [1, 11155111, 8453, 84532, 5115]; // Ethereum mainnet, Sepolia, Base mainnet, Base Sepolia, Citrea Testnet
+  const chainsToQuery = chainId ? [chainId] : [11155111, 84532, 5115]; // Sepolia, Base Sepolia, Citrea Testnet
 
   for (const chain of chainsToQuery) {
     try {
@@ -77,10 +75,8 @@ export async function getTokenBalances(address: string, chainId?: number): Promi
  */
 function getChainNativeTokenName(chainId: number): string {
   switch (chainId) {
-    case 1:
     case 11155111:
       return 'ETH';
-    case 8453:
     case 84532:
       return 'ETH'; // Base also uses ETH
     case 5115:
@@ -95,12 +91,8 @@ function getChainNativeTokenName(chainId: number): string {
  */
 function getChainNativeTokenFullName(chainId: number): string {
   switch (chainId) {
-    case 1:
-      return 'Ethereum';
     case 11155111:
       return 'Sepolia Ether';
-    case 8453:
-      return 'Base Ether';
     case 84532:
       return 'Base Sepolia Ether';
     case 5115:
@@ -276,18 +268,6 @@ async function queryRPCBalances(address: string, chainId: number): Promise<Token
 
   // Common token addresses to check
   const commonTokens: Record<number, string[]> = {
-    1: [
-      // Ethereum mainnet
-      '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2', // WETH
-      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', // USDC
-      '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599', // CBTC + WCBTC + WBTC
-    ],
-    8453: [
-      // Base mainnet
-      '0x4200000000000000000000000000000000000006', // WETH
-      '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', // USDC
-      '0x0555E30da8f98308EdB960aa94C0Db47230d2B9c', // CBTC + WCBTC + WBTC
-    ],
     5115: [
       // Citrea Testnet
       '0x4126E0f88008610d6E6C3059d93e9814c20139cB', // WETH

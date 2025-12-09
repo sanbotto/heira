@@ -5,15 +5,8 @@
 
 import { ethers } from 'ethers';
 import type { D1Database, ScheduledEvent, ExecutionContext } from '@cloudflare/workers-types';
-import { D1StorageAdapter } from './d1-adapter';
-
-// ABI for InheritanceEscrow contract (minimal needed for keeper)
-const ESCROW_ABI = [
-  'function canExecute() external view returns (bool)',
-  'function run() external',
-  'function status() external view returns (uint8)',
-  'function getTimeUntilExecution() external view returns (uint256)',
-];
+import { D1StorageAdapter } from '../../../app/src/lib/server/storage/d1-adapter';
+import { KEEPER_ESCROW_ABI } from '../../../app/src/lib/server/constants';
 
 interface NetworkConfig {
   name: string;
@@ -148,7 +141,7 @@ async function checkEscrow(
   signer: ethers.Wallet
 ): Promise<{ canExecute: boolean; executed: boolean; error?: string }> {
   try {
-    const escrowContract = new ethers.Contract(escrowAddress, ESCROW_ABI, provider);
+    const escrowContract = new ethers.Contract(escrowAddress, KEEPER_ESCROW_ABI, provider);
     const canExecute = await escrowContract.canExecute();
 
     if (!canExecute) {
@@ -161,7 +154,7 @@ async function checkEscrow(
 
     // Execute the escrow
     console.log(`Executing escrow ${escrowAddress} on ${networkName}...`);
-    const escrowWithSigner = new ethers.Contract(escrowAddress, ESCROW_ABI, signer);
+    const escrowWithSigner = new ethers.Contract(escrowAddress, KEEPER_ESCROW_ABI, signer);
     const tx = await escrowWithSigner.run();
     console.log(`Transaction sent: ${tx.hash}`);
 
@@ -211,7 +204,7 @@ async function checkInactivityWarnings(
       }
 
       try {
-        const escrowContract = new ethers.Contract(escrowMetadata.escrowAddress, ESCROW_ABI, provider);
+        const escrowContract = new ethers.Contract(escrowMetadata.escrowAddress, KEEPER_ESCROW_ABI, provider);
 
         // Check contract status - skip if inactive
         const status = await escrowContract.status();

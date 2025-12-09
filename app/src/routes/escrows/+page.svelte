@@ -3,7 +3,7 @@
   import { wallet } from '../../lib/stores/wallet';
   import { goto } from '$app/navigation';
   import { getEscrowsByOwner, getEscrowStatus, getTimeUntilExecution } from '../../lib/escrow';
-  import { mainnet, sepolia } from 'viem/chains';
+  import { sepolia } from 'viem/chains';
   import type { Address } from 'viem';
 
   let escrows: Array<{
@@ -23,7 +23,7 @@
       // Sepolia uses the same env var as Ethereum mainnet
       // Citrea Testnet uses its own env var
       let factoryAddress: Address;
-      if ($wallet.chainId === mainnet.id || $wallet.chainId === sepolia.id) {
+      if ($wallet.chainId === sepolia.id) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_ETHEREUM as Address;
       } else if ($wallet.chainId === 5115) {
         factoryAddress = import.meta.env.VITE_FACTORY_ADDRESS_CITREA as Address;

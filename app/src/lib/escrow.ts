@@ -13,7 +13,7 @@ import {
   encodeFunctionData,
   type MulticallReturnType,
 } from 'viem';
-import { resolveEnsName } from './ens';
+import { getNetworkName as getNetworkNameFromUtils } from './server/networks';
 
 const FACTORY_ABI = [
   {
@@ -175,7 +175,7 @@ const ESCROW_ABI = [
 ] as const;
 
 export interface BeneficiaryConfig {
-  recipient: Address | string; // Address or ENS name
+  recipient: Address | string; // Address
   percentage: number; // 0-100
   chainId: SupportedChainId;
   tokenAddress: Address; // Token to receive (zero address for native ETH)
@@ -191,7 +191,7 @@ export interface TokenConfig {
 }
 
 export interface EscrowConfig {
-  mainWallet: Address | string; // Address or ENS name
+  mainWallet: Address | string; // Address
   inactivityPeriod: number; // seconds
   beneficiaries: BeneficiaryConfig[];
   includedTokens?: string[]; // Array of token symbols to include (e.g., ["USDC", "WCBTC", "WETH"])
@@ -206,10 +206,8 @@ export interface EscrowConfig {
  */
 export function getExplorerName(chainId: SupportedChainId | number): string {
   switch (chainId) {
-    case 1:
     case 11155111:
       return 'Etherscan';
-    case 8453:
     case 84532:
       return 'Basescan';
     case 5115:
@@ -220,14 +218,7 @@ export function getExplorerName(chainId: SupportedChainId | number): string {
 }
 
 function getNetworkName(chainId: SupportedChainId): string {
-  const networkMap: Record<SupportedChainId, string> = {
-    1: 'mainnet',
-    11155111: 'sepolia',
-    8453: 'base',
-    84532: 'baseSepolia',
-    5115: 'citreaTestnet',
-  };
-  return networkMap[chainId] || 'sepolia';
+  return getNetworkNameFromUtils(chainId);
 }
 
 /**
@@ -241,14 +232,6 @@ async function verifyEscrowContract(
   owner: Address,
   chainId: SupportedChainId
 ): Promise<{ success: boolean; alreadyVerified?: boolean; message: string; explorerUrl?: string }> {
-  // Ensure mainWallet is an address string
-  const mainWalletAddress =
-    typeof mainWallet === 'string' && mainWallet.startsWith('0x')
-      ? mainWallet
-      : typeof mainWallet === 'string'
-        ? mainWallet // If it's still a string but not an address, it might be an ENS name
-        : mainWallet;
-
   const networkName = getNetworkName(chainId);
 
   try {
@@ -260,7 +243,7 @@ async function verifyEscrowContract(
       },
       body: JSON.stringify({
         escrowAddress,
-        mainWallet: mainWalletAddress,
+        mainWallet,
         inactivityPeriod: inactivityPeriod.toString(),
         owner,
         network: networkName,
@@ -339,54 +322,26 @@ export async function createEscrow(
     throw new Error('Invalid inactivity period: must be greater than 0');
   }
 
-  // Resolve ENS names to addresses before creating escrow
   let resolvedMainWallet: Address;
 
   if (typeof config.mainWallet === 'string') {
     const mainWalletStr = config.mainWallet.trim();
 
-    // Check if it's an ENS name
-    if (mainWalletStr.endsWith('.eth')) {
-      // Validate ENS name format
-      if (mainWalletStr.length < 4 || mainWalletStr.split('.').length < 2) {
-        throw new Error('Invalid ENS name format');
-      }
-
-      // Check if ENS resolution is supported on this chain
-      const ensSupportedChains = [1, 11155111, 8453, 84532]; // mainnet, Sepolia, Base, Base Sepolia
-      if (!ensSupportedChains.includes(chainId)) {
-        throw new Error(
-          `ENS resolution is not supported on chain ${chainId}. Please use a plain Ethereum address (0x...) instead.`
-        );
-      }
-
-      // Resolve ENS name to address
-      onProgress?.('Resolving ENS name...', 'info');
-      const resolvedAddress = await resolveEnsName(mainWalletStr);
-      if (!resolvedAddress) {
-        throw new Error(
-          `Failed to resolve ENS name "${mainWalletStr}". Please verify the ENS name exists and is correct.`
-        );
-      }
-      resolvedMainWallet = resolvedAddress;
-      onProgress?.(`Resolved "${mainWalletStr}" to ${resolvedAddress}`, 'success');
-    } else {
-      // Should be a hex address
-      if (!mainWalletStr.startsWith('0x') || mainWalletStr.length !== 42) {
-        throw new Error(
-          'Invalid address format. Must be a valid Ethereum address (0x...) or ENS name (.eth)'
-        );
-      }
-
-      // Validate hex characters
-      if (!/^0x[0-9a-fA-F]{40}$/.test(mainWalletStr)) {
-        throw new Error(
-          'Invalid address format. Address must contain only hexadecimal characters.'
-        );
-      }
-
-      resolvedMainWallet = mainWalletStr as Address;
+    // Validate address format
+    if (!mainWalletStr.startsWith('0x') || mainWalletStr.length !== 42) {
+      throw new Error(
+        'Invalid address format. Must be a valid Ethereum address (0x...)'
+      );
     }
+
+    // Validate hex characters
+    if (!/^0x[0-9a-fA-F]{40}$/.test(mainWalletStr)) {
+      throw new Error(
+        'Invalid address format. Address must contain only hexadecimal characters.'
+      );
+    }
+
+    resolvedMainWallet = mainWalletStr as Address;
   } else {
     // Should be an Address type
     if (!config.mainWallet || config.mainWallet === '0x0000000000000000000000000000000000000000') {
@@ -529,15 +484,13 @@ export async function createEscrow(
       // The RPC didn't provide the actual revert reason
       // Provide helpful context based on what we know
       const chainName =
-        chainId === 1
-          ? 'Ethereum mainnet'
-          : chainId === 11155111
-            ? 'Sepolia testnet'
-            : chainId === 8453
-              ? 'Base mainnet'
-              : chainId === 84532
-                ? 'Base Sepolia'
-                : `chain ${chainId}`;
+        chainId === 11155111
+          ? 'Sepolia testnet'
+          : chainId === 84532
+            ? 'Base Sepolia'
+            : chainId === 5115
+              ? 'Citrea Testnet'
+              : `chain ${chainId}`;
 
       revertReason =
         `Transaction reverted for an unknown reason (RPC provider limitation).\n\n` +
@@ -550,7 +503,7 @@ export async function createEscrow(
         `2. Verify the factory contract address: ${factoryAddress}\n` +
         `3. Check the transaction on a block explorer to see the actual revert reason\n\n` +
         `Your inputs:\n` +
-        `- Main wallet: ${resolvedMainWallet}${typeof config.mainWallet === 'string' && config.mainWallet.endsWith('.eth') ? ` (resolved from ${config.mainWallet})` : ''}\n` +
+        `- Main wallet: ${resolvedMainWallet}\n` +
         `- Inactivity period: ${config.inactivityPeriod} seconds\n` +
         `- Chain: ${chainName} (${chainId})`;
     }
@@ -593,9 +546,9 @@ export async function createEscrow(
     // If simulation didn't throw, provide generic error
     throw new Error(
       'Transaction failed (reverted). Common causes:\n' +
-        '- Invalid address format\n' +
-        '- Invalid inactivity period\n' +
-        `Transaction hash: ${hash}`
+      '- Invalid address format\n' +
+      '- Invalid inactivity period\n' +
+      `Transaction hash: ${hash}`
     );
   }
 
@@ -640,9 +593,9 @@ export async function createEscrow(
   if (!escrowAddress) {
     throw new Error(
       'Failed to find EscrowCreated event in transaction receipt. ' +
-        'The transaction may have succeeded but the event was not emitted. ' +
-        `Transaction hash: ${hash}. ` +
-        'Please verify the factory contract address is correct.'
+      'The transaction may have succeeded but the event was not emitted. ' +
+      `Transaction hash: ${hash}. ` +
+      'Please verify the factory contract address is correct.'
     );
   }
 
@@ -652,10 +605,7 @@ export async function createEscrow(
   console.log('Configuring escrow at:', escrowAddr);
 
   // Configure beneficiaries
-  // Resolve all ENS names to addresses before adding beneficiaries
   if (config.beneficiaries.length > 0) {
-    onProgress?.('Resolving beneficiary ENS names...', 'info');
-
     const resolvedBeneficiaries: Array<{
       recipient: Address;
       percentage: number;
@@ -665,27 +615,20 @@ export async function createEscrow(
       targetToken?: Address;
     }> = [];
 
-    // Resolve all beneficiaries (ENS names or addresses) to addresses
     for (let i = 0; i < config.beneficiaries.length; i++) {
       const beneficiary = config.beneficiaries[i];
       let resolvedRecipient: Address;
 
-      if (typeof beneficiary.recipient === 'string' && beneficiary.recipient.endsWith('.eth')) {
-        // Resolve ENS name to address
-        const resolvedAddress = await resolveEnsName(beneficiary.recipient);
-        if (!resolvedAddress) {
+      if (typeof beneficiary.recipient === 'string') {
+        // Validate address format
+        if (!beneficiary.recipient.startsWith('0x') || beneficiary.recipient.length !== 42) {
           throw new Error(
-            `Failed to resolve ENS name "${beneficiary.recipient}" for beneficiary ${i + 1}. Please verify the ENS name exists and is correct.`
+            `Invalid address format for beneficiary ${i + 1}. Must be a valid Ethereum address (0x...).`
           );
         }
-        resolvedRecipient = resolvedAddress;
-        onProgress?.(`Resolved "${beneficiary.recipient}" to ${resolvedAddress}`, 'success');
+        resolvedRecipient = beneficiary.recipient as Address;
       } else {
-        // Already an address
-        resolvedRecipient =
-          typeof beneficiary.recipient === 'string'
-            ? (beneficiary.recipient as Address)
-            : beneficiary.recipient;
+        resolvedRecipient = beneficiary.recipient;
       }
 
       resolvedBeneficiaries.push({
@@ -716,7 +659,7 @@ export async function createEscrow(
         if (b.shouldSwap && targetToken === '0x0000000000000000000000000000000000000000') {
           throw new Error(
             `Beneficiary ${i + 1} (${b.recipient}) has shouldSwap=true but targetToken is not set. ` +
-              `Please ensure targetToken is configured when enabling swaps.`
+            `Please ensure targetToken is configured when enabling swaps.`
           );
         }
         return targetToken;
@@ -787,8 +730,8 @@ export async function createEscrow(
       ) {
         validationErrors.push(
           `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+          `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+          `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
         );
       }
 
@@ -1112,34 +1055,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.estimateGas({
               account,
@@ -1199,34 +1142,34 @@ export async function createEscrow(
             // Try to call the contract directly to get revert reason
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             await publicClient.call({
               to: escrowAddr,
@@ -1305,34 +1248,34 @@ export async function createEscrow(
           try {
             const functionData = useOldSignature
               ? encodeFunctionData({
-                  abi: [
-                    {
-                      inputs: [
-                        { name: '_recipients', type: 'address[]' },
-                        { name: '_percentages', type: 'uint256[]' },
-                        { name: '_chainIds', type: 'uint256[]' },
-                      ],
-                      name: 'addBeneficiariesBatch',
-                      outputs: [],
-                      stateMutability: 'nonpayable',
-                      type: 'function',
-                    },
-                  ] as const,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [recipients, percentages, chainIds],
-                })
+                abi: [
+                  {
+                    inputs: [
+                      { name: '_recipients', type: 'address[]' },
+                      { name: '_percentages', type: 'uint256[]' },
+                      { name: '_chainIds', type: 'uint256[]' },
+                    ],
+                    name: 'addBeneficiariesBatch',
+                    outputs: [],
+                    stateMutability: 'nonpayable',
+                    type: 'function',
+                  },
+                ] as const,
+                functionName: 'addBeneficiariesBatch',
+                args: [recipients, percentages, chainIds],
+              })
               : encodeFunctionData({
-                  abi: ESCROW_ABI,
-                  functionName: 'addBeneficiariesBatch',
-                  args: [
-                    recipients,
-                    percentages,
-                    chainIds,
-                    tokenAddresses,
-                    shouldSwaps,
-                    targetTokens,
-                  ],
-                });
+                abi: ESCROW_ABI,
+                functionName: 'addBeneficiariesBatch',
+                args: [
+                  recipients,
+                  percentages,
+                  chainIds,
+                  tokenAddresses,
+                  shouldSwaps,
+                  targetTokens,
+                ],
+              });
 
             const result = await publicClient.call({
               to: escrowAddr,
@@ -1533,8 +1476,8 @@ export async function createEscrow(
         ) {
           validationErrors.push(
             `Array length mismatch: recipients=${recipients.length}, percentages=${percentages.length}, ` +
-              `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
-              `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
+            `chainIds=${chainIds.length}, tokenAddresses=${tokenAddresses.length}, ` +
+            `shouldSwaps=${shouldSwaps.length}, targetTokens=${targetTokens.length}`
           );
         }
 
@@ -1589,9 +1532,7 @@ export async function createEscrow(
 
         // Get explorer URL for this chain
         const explorerUrls: Record<number, string> = {
-          1: 'https://etherscan.io/tx/',
           11155111: 'https://sepolia.etherscan.io/tx/',
-          8453: 'https://basescan.org/tx/',
           84532: 'https://sepolia.basescan.org/tx/',
           5115: 'https://explorer.testnet.citrea.xyz/tx/',
         };
@@ -1600,8 +1541,8 @@ export async function createEscrow(
 
         throw new Error(
           `Failed to add beneficiaries: ${errorMessage}. ` +
-            `Transaction hash: ${beneficiaryHash}. ` +
-            `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
+          `Transaction hash: ${beneficiaryHash}. ` +
+          `View on ${explorerName}: ${explorerUrl}${beneficiaryHash}`
         );
       }
     }
@@ -1609,7 +1550,7 @@ export async function createEscrow(
 
   console.log('Escrow configuration complete. Final address:', escrowAddr);
 
-  // Use the resolved main wallet address (already resolved from ENS if needed)
+  // Use the resolved main wallet address
   const resolvedMainWalletAddress = resolvedMainWallet;
 
   // Request token approvals on all relevant chains if mainWallet matches connected account
@@ -1686,7 +1627,7 @@ export async function createEscrow(
     const tokenList = config.includedTokens?.join(', ') || 'USDC';
     onProgress?.(
       `Please ensure ${tokenList} is approved for this escrow on ${chainNames}. ` +
-        `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
+      `The main wallet (${resolvedMainWalletAddress}) needs to approve tokens on all relevant chains.`,
       'info'
     );
   }
@@ -1936,10 +1877,7 @@ export function getChainsToCheckForApprovals(
   deploymentChainId: SupportedChainId | number
 ): number[] {
   const chainId = Number(deploymentChainId);
-  if (chainId === 1 || chainId === 8453) {
-    // Mainnet chains - check both Ethereum Mainnet and Base Mainnet
-    return [1, 8453];
-  } else if (chainId === 11155111 || chainId === 84532) {
+  if (chainId === 11155111 || chainId === 84532) {
     // Testnet chains - check both Sepolia and Base Sepolia
     return [11155111, 84532];
   } else if (chainId === 5115) {
@@ -2055,7 +1993,7 @@ export async function requestUSDCApprovalsOnAllChains(
           // If public client works, the issue is likely wallet connection
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve USDC. ` +
-              `Current chain may not match.`
+            `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2204,7 +2142,7 @@ export async function requestTokenApprovalsOnAllChains(
           const publicClient = getPublicClient(chainId);
           throw new Error(
             `Please switch your wallet to ${getChainName(chainId)} to approve tokens. ` +
-              `Current chain may not match.`
+            `Current chain may not match.`
           );
         } catch {
           throw new Error(
@@ -2306,12 +2244,8 @@ export async function requestTokenApprovalsOnAllChains(
  */
 function getChainName(chainId: SupportedChainId | number): string {
   switch (chainId) {
-    case 1:
-      return 'Ethereum Mainnet';
     case 11155111:
       return 'Sepolia';
-    case 8453:
-      return 'Base Mainnet';
     case 84532:
       return 'Base Sepolia';
     case 5115:

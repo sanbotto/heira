@@ -31,8 +31,6 @@ contract HeiraInheritanceEscrowFactory {
      * @param _mainWallet The wallet address to monitor for activity
      * @param _inactivityPeriod Period of inactivity in seconds before execution
      * @return escrowAddress Address of the newly created escrow contract
-     * @dev Note: The frontend resolves ENS names to addresses before calling this function.
-     *      The address provided here may have been resolved from an ENS name.
      */
     function createEscrow(
         address _mainWallet,

@@ -27,16 +27,6 @@ module.exports = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 84532
     },
-    mainnet: {
-      url: process.env.MAINNET_RPC_URL || "https://eth.llamarpc.com",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 1
-    },
-    base: {
-      url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 8453
-    },
     citreaTestnet: {
       url: process.env.CITREA_TESTNET_RPC_URL || "https://rpc.testnet.citrea.xyz",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
@@ -46,14 +36,6 @@ module.exports = {
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY || "",
     customChains: [
-      {
-        network: "base",
-        chainId: 8453,
-        urls: {
-          apiURL: "https://api.basescan.org/api",
-          browserURL: "https://basescan.org"
-        }
-      },
       {
         network: "baseSepolia",
         chainId: 84532,

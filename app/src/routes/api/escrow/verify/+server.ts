@@ -1,20 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
-// Valid networks for verification
-const VALID_NETWORKS = ['sepolia', 'baseSepolia', 'mainnet', 'base', 'citreaTestnet'] as const;
-
-function getExplorerUrl(network: string, address: string): string {
-  const explorerMap: Record<string, string> = {
-    sepolia: 'https://sepolia.etherscan.io',
-    baseSepolia: 'https://sepolia.basescan.org',
-    mainnet: 'https://etherscan.io',
-    base: 'https://basescan.org',
-    citreaTestnet: 'https://explorer.testnet.citrea.xyz',
-  };
-  const baseUrl = explorerMap[network] || explorerMap.sepolia;
-  return `${baseUrl}/address/${address}`;
-}
+import { getExplorerUrl } from '$lib/server/networks';
+import { VALID_NETWORKS } from '$lib/server/constants';
 
 async function checkVerificationStatus(
   escrowAddress: string,

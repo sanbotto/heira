@@ -22,7 +22,6 @@ function WalletStateSync() {
 function CustomConnectButton() {
   const [stableAccount, setStableAccount] = React.useState<{
     displayName: string;
-    ensAvatar: string | null;
   } | null>(null);
   const stableTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const accountAddressRef = React.useRef<string | null>(null);
@@ -44,7 +43,7 @@ function CustomConnectButton() {
         chain &&
         (!authenticationStatus || authenticationStatus === 'authenticated');
 
-      // Wait for ENS data to stabilize before showing button
+      // Wait for account data to stabilize before showing button
       React.useEffect(() => {
         if (!connected || !account) {
           setStableAccount(null);
@@ -63,18 +62,11 @@ function CustomConnectButton() {
           clearTimeout(stableTimeoutRef.current);
         }
 
-        // Check if ENS data appears to be loaded
         const address = account.address || '';
         const formattedAddress = `${address.slice(0, 4)}…${address.slice(-4)}`;
-        const hasEnsName = account.displayName && account.displayName !== formattedAddress;
-
-        // If ENS name is already loaded, wait less time (it's ready)
-        // Otherwise wait longer for ENS data to potentially load
-        const delay = hasEnsName ? 200 : 500;
 
         stableTimeoutRef.current = setTimeout(() => {
-          const displayName = account.displayName || account.ensName || formattedAddress;
-          const ensAvatar = account.ensAvatar || null;
+          const displayName = account.displayName || formattedAddress;
 
           // Only update if this is the first time or if data has changed
           setStableAccount(prev => {
@@ -82,28 +74,26 @@ function CustomConnectButton() {
             if (!prev) {
               return {
                 displayName,
-                ensAvatar,
               };
             }
 
-            // Only update if ENS name or avatar actually changed
-            if (prev.displayName !== displayName || prev.ensAvatar !== ensAvatar) {
+            // Only update if display name actually changed
+            if (prev.displayName !== displayName) {
               return {
                 displayName,
-                ensAvatar,
               };
             }
 
             return prev;
           });
-        }, delay);
+        }, 200);
 
         return () => {
           if (stableTimeoutRef.current) {
             clearTimeout(stableTimeoutRef.current);
           }
         };
-      }, [connected, account?.address, account?.displayName, account?.ensName, account?.ensAvatar]);
+      }, [connected, account?.address, account?.displayName]);
 
       if (!ready) {
         return React.createElement('div', {
@@ -140,8 +130,8 @@ function CustomConnectButton() {
         );
       }
 
-      // Don't show account button until we have stable data (waited for ENS to load)
-      // This prevents flashing between address and ENS name
+      // Don't show account button until we have stable data
+      // This prevents flashing
       if (!stableAccount) {
         // Show only chain button while waiting for account data to stabilize
         return React.createElement(
@@ -161,21 +151,21 @@ function CustomConnectButton() {
               },
               [
                 chain.hasIcon &&
-                  chain.iconUrl &&
-                  React.createElement(
-                    'div',
-                    {
-                      key: 'chain-icon',
-                      className: 'rk-chain-icon',
-                      style: {
-                        background: chain.iconBackground || 'transparent',
-                      },
+                chain.iconUrl &&
+                React.createElement(
+                  'div',
+                  {
+                    key: 'chain-icon',
+                    className: 'rk-chain-icon',
+                    style: {
+                      background: chain.iconBackground || 'transparent',
                     },
-                    React.createElement('img', {
-                      alt: chain.name ?? 'Chain icon',
-                      src: chain.iconUrl,
-                    })
-                  ),
+                  },
+                  React.createElement('img', {
+                    alt: chain.name ?? 'Chain icon',
+                    src: chain.iconUrl,
+                  })
+                ),
                 React.createElement('span', { key: 'chain-name' }, chain.name),
               ]
             ),
@@ -184,7 +174,6 @@ function CustomConnectButton() {
       }
 
       const displayName = stableAccount.displayName;
-      const ensAvatar = stableAccount.ensAvatar;
 
       return React.createElement(
         'div',
@@ -204,21 +193,21 @@ function CustomConnectButton() {
             },
             [
               chain.hasIcon &&
-                chain.iconUrl &&
-                React.createElement(
-                  'div',
-                  {
-                    key: 'chain-icon',
-                    className: 'rk-chain-icon',
-                    style: {
-                      background: chain.iconBackground || 'transparent',
-                    },
+              chain.iconUrl &&
+              React.createElement(
+                'div',
+                {
+                  key: 'chain-icon',
+                  className: 'rk-chain-icon',
+                  style: {
+                    background: chain.iconBackground || 'transparent',
                   },
-                  React.createElement('img', {
-                    alt: chain.name ?? 'Chain icon',
-                    src: chain.iconUrl,
-                  })
-                ),
+                },
+                React.createElement('img', {
+                  alt: chain.name ?? 'Chain icon',
+                  src: chain.iconUrl,
+                })
+              ),
               React.createElement('span', { key: 'chain-name' }, chain.name),
             ]
           ),
@@ -239,24 +228,9 @@ function CustomConnectButton() {
                   key: 'avatar',
                   className: 'rk-avatar',
                 },
-                ensAvatar
-                  ? React.createElement('img', {
-                      src: ensAvatar,
-                      alt: 'ENS Avatar',
-                      style: {
-                        opacity: 0,
-                        transition: 'opacity 0.2s',
-                      },
-                      onLoad: (e: React.SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.style.opacity = '1';
-                      },
-                      onError: (e: React.SyntheticEvent<HTMLImageElement>) => {
-                        e.currentTarget.style.display = 'none';
-                      },
-                    })
-                  : React.createElement('div', {
-                      className: 'rk-avatar-placeholder',
-                    })
+                React.createElement('div', {
+                  className: 'rk-avatar-placeholder',
+                })
               ),
               React.createElement('span', { key: 'address' }, displayName),
             ]

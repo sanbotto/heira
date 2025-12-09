@@ -13,26 +13,33 @@
   // Initialize to false to match server render (prevents hydration mismatch)
   let isDark = false;
 
-  onMount(async () => {
+  onMount(() => {
     if (!browser) return;
 
-    await tick();
-    isDark = getIsDark();
+    let observer: MutationObserver | null = null;
 
-    // Watch for DOM changes (when theme is applied)
-    const observer = new MutationObserver(() => {
-      const current = getIsDark();
-      if (current !== isDark) {
-        isDark = current;
+    tick().then(() => {
+      isDark = getIsDark();
+
+      // Watch for DOM changes (when theme is applied)
+      observer = new MutationObserver(() => {
+        const current = getIsDark();
+        if (current !== isDark) {
+          isDark = current;
+        }
+      });
+
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'data-theme'],
+      });
+    });
+
+    return () => {
+      if (observer) {
+        observer.disconnect();
       }
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme'],
-    });
-
-    return () => observer.disconnect();
+    };
   });
 </script>
 
@@ -41,9 +48,8 @@
   <p class="description">Automated and permissionless Web3 inheritance management.</p>
 
   <div class="beta-disclaimer">
-    WARNING: This application is currently in <strong>beta</strong>. Please use with caution, only
-    with amounts you're comfortable losing and only connect disposable wallets. Lastly, use only
-    <strong>testnets</strong>!
+    WARNING: This application is currently in <strong>beta</strong>. Please use it with caution. For
+    this reason, we're only supporting <strong>testnets</strong> for the time being.
   </div>
 
   <div class="card">
@@ -155,30 +161,7 @@
       />
     </div>
     <div class="logo-item">
-      <img
-        src={isDark ? '/the-graph-dark.svg' : '/the-graph.svg'}
-        alt="The Graph"
-        class="logo-img"
-      />
-    </div>
-    <div class="logo-item">
-      <img src={isDark ? '/ledger-dark.svg' : '/ledger.svg'} alt="Ledger" class="logo-img" />
-    </div>
-    <div class="logo-item">
-      <img src={isDark ? '/ens-dark.svg' : '/ens.svg'} alt="ENS" class="logo-img" />
-    </div>
-    <div class="logo-item">
       <img src={isDark ? '/citrea-dark.svg' : '/citrea.svg'} alt="Citrea" class="logo-img" />
-    </div>
-    <div class="logo-item">
-      <img src={isDark ? '/fluence-dark.svg' : '/fluence.svg'} alt="Fluence" class="logo-img" />
-    </div>
-    <div class="logo-item">
-      <img
-        src={isDark ? '/nethermind-dark.svg' : '/nethermind.svg'}
-        alt="Nethermind"
-        class="logo-img"
-      />
     </div>
     <div class="logo-item">
       <img
