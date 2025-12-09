@@ -150,29 +150,6 @@
   </div>
 </div>
 
-<section class="powered-by">
-  <h2 class="powered-by-title">Powered by</h2>
-  <div class="powered-by-logos">
-    <div class="logo-item">
-      <img
-        src={isDark ? '/hardhat-logo-dark.svg' : '/hardhat-logo.svg'}
-        alt="Hardhat"
-        class="logo-img"
-      />
-    </div>
-    <div class="logo-item">
-      <img src={isDark ? '/citrea-dark.svg' : '/citrea.svg'} alt="Citrea" class="logo-img" />
-    </div>
-    <div class="logo-item">
-      <img
-        src={isDark ? '/keeperhub-dark.svg' : '/keeperhub.svg'}
-        alt="KeeperHub"
-        class="logo-img"
-      />
-    </div>
-  </div>
-</section>
-
 <style>
   .container {
     max-width: 800px;
@@ -357,28 +334,6 @@
     }
   }
 
-  .powered-by {
-    max-width: 1000px;
-    margin: 4rem auto 2rem;
-    padding: 0 2rem;
-  }
-
-  .powered-by-title {
-    text-align: center;
-    font-size: 1.5rem;
-    margin-bottom: 2rem;
-    color: var(--color-text-secondary);
-    font-weight: 500;
-  }
-
-  .powered-by-logos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3rem;
-    align-items: center;
-    justify-content: center;
-  }
-
   .logo-item {
     display: flex;
     align-items: center;
@@ -402,15 +357,6 @@
   }
 
   @media (max-width: 640px) {
-    .powered-by {
-      margin: 3rem auto 2rem;
-      padding: 0 1rem;
-    }
-
-    .powered-by-logos {
-      gap: 2rem;
-    }
-
     .logo-item {
       height: 50px;
       min-width: 100px;
