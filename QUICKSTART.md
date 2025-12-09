@@ -10,7 +10,7 @@ cd contracts
 npm install
 
 # Frontend
-cd ../frontend
+cd ../app
 npm install
 ```
 
@@ -23,11 +23,11 @@ cp .env.example .env
 # Edit .env with your test wallet private key
 ```
 
-**Frontend:**
+**App:**
 ```bash
-cd frontend
+cd app
 cp .env.example .env
-# Edit .env with your API keys (see TESTING.md for details)
+# Edit .env with your API keys and factory addresses
 ```
 
 ### 3. Test Smart Contracts
@@ -43,14 +43,14 @@ npm test
 # Deploy to Sepolia
 npx hardhat run scripts/deploy.js --network sepolia
 
-# Copy the factory address and add to frontend/.env:
+# Copy the factory address and add to app/.env:
 # VITE_FACTORY_ADDRESS_ETHEREUM=0x...
 ```
 
 ### 5. Run Frontend
 
 ```bash
-cd frontend
+cd app
 npm run dev
 ```
 
@@ -58,4 +58,4 @@ Open `http://localhost:5173` in your browser and connect your wallet!
 
 ## More Details
 
-See [TESTING.md](./TESTING.md) for comprehensive testing and deployment instructions.
+For deployment instructions, see the [README.md](./README.md) file.

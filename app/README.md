@@ -1,38 +1,161 @@
-# sv
+# Heira App
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+SvelteKit application for the Heira Web3 inheritance escrow platform.
 
-## Creating a project
+## Overview
 
-If you're seeing this, you've probably already done this step. Congrats!
+This is a full-stack SvelteKit application that provides:
+- Frontend UI for creating and managing escrow contracts.
+- API endpoints for escrow registration, verification, and price data.
+- D1 database integration for escrow metadata storage.
+- Cloudflare Pages deployment with serverless functions.
 
-```sh
-# create a new project in the current directory
-npx sv create
+## API Routes
 
-# create a new project in my-app
-npx sv create my-app
+### Escrow APIs
+
+- `POST /api/escrow/register` - Register a new escrow contract
+- `POST /api/escrow/unregister` - Unregister an escrow contract
+- `POST /api/escrow/verify` - Verify an escrow contract on Blockscout
+- `GET /api/escrow/[address]` - Get escrow details by address
+
+### Price API
+
+- `GET /api/prices` - Get token prices from 1inch API
+
+## D1 Database Setup
+
+The app uses Cloudflare D1 (SQLite) for storing escrow metadata.
+
+### Local Development
+
+1. Copy `wrangler.toml.example` to `wrangler.toml`
+2. Configure D1 database binding in `wrangler.toml`
+3. Create local database: `wrangler d1 create heira-escrows-db`
+4. Run migrations: `wrangler d1 execute heira-escrows-db --file=./migrations/0001_initial.sql --local`
+
+### Production
+
+1. Create D1 database in Cloudflare dashboard
+2. Run migrations: `wrangler d1 execute heira-escrows-db --file=./migrations/0001_initial.sql`
+3. Configure database binding in Cloudflare Pages settings
+
+### Database Schema
+
+The `escrows` table stores:
+- `escrow_address` - Contract address
+- `network` - Network name (sepolia, baseSepolia, citreaTestnet)
+- `email` - Optional email for inactivity warnings
+- `inactivity_period` - Inactivity period in days
+- `created_at` - Creation timestamp
+- `last_email_sent` - Last warning email timestamp
+
+## Development
+
+### Prerequisites
+
+- Node.js 18+
+- npm or pnpm
+- Cloudflare account (for D1 database)
+
+### Setup
+
+```bash
+npm install
+cp .env.example .env
+cp wrangler.toml.example wrangler.toml
+# Edit .env with your API keys and factory addresses
+# Edit wrangler.toml with D1 database configuration
 ```
 
-## Developing
+### Running Locally
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
+```bash
 npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
 ```
 
-## Building
+The app will be available at `http://localhost:5173`.
 
-To create a production version of your app:
+### Type Checking
 
-```sh
+```bash
+npm run check
+```
+
+### Building
+
+```bash
 npm run build
 ```
 
-You can preview the production build with `npm run preview`.
+### Preview Production Build
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+```bash
+npm run preview
+```
+
+## Environment Variables
+
+See `.env.example` for required environment variables:
+
+- `VITE_WALLETCONNECT_PROJECT_ID` - WalletConnect project ID
+- `VITE_COINBASE_PROJECT_ID` - Coinbase CDP project ID
+- `VITE_COINBASE_API_KEY_ID` - Coinbase API key ID
+- `VITE_COINBASE_API_KEY_SECRET` - Coinbase API key secret
+- `VITE_CHAINLINK_ORG_ID` - Chainlink organization ID
+- `VITE_WORLD_ID_API_KEY` - World ID API key
+- `VITE_WORLD_ID_APP_ID` - World ID app ID
+- `ONEINCH_API_KEY` - 1inch API key (server-side)
+- `VITE_FACTORY_ADDRESS_ETHEREUM` - Factory contract address on Ethereum/Sepolia
+- `VITE_FACTORY_ADDRESS_BASE` - Factory contract address on Base
+- `VITE_FACTORY_ADDRESS_CITREA` - Factory contract address on Citrea Testnet
+- `SEPOLIA_RPC_URL` - Sepolia RPC URL (server-side)
+- `BASE_SEPOLIA_RPC_URL` - Base Sepolia RPC URL (server-side)
+- `CITREA_TESTNET_RPC_URL` - Citrea Testnet RPC URL (server-side)
+- `BLOCKSCOUT_API_KEY` - Blockscout API key for contract verification
+
+## Deployment
+
+### Cloudflare Pages
+
+1. Build the app: `npm run build`
+2. Connect your GitHub repository to Cloudflare Pages
+3. Configure build settings:
+   - Build command: `npm run build`
+   - Build output directory: `.svelte-kit`
+   - Node version: 18 or higher
+4. Set environment variables in Cloudflare Pages dashboard
+5. Configure D1 database binding in Pages settings
+
+### Using Wrangler
+
+```bash
+npm run build
+wrangler pages deploy .svelte-kit
+```
+
+### Database Migration
+
+After deploying, run migrations on production database:
+
+```bash
+wrangler d1 execute heira-escrows-db --file=./migrations/0001_initial.sql
+```
+
+## Supported Networks
+
+- Sepolia (Ethereum testnet)
+- Base Sepolia
+- Citrea Testnet
+
+## Technologies
+
+- SvelteKit - Full-stack framework
+- Vite - Build tool
+- TypeScript - Type safety
+- Tailwind CSS - Styling
+- RainbowKit - Wallet connection UI
+- Wagmi - Ethereum interaction
+- Viem - Ethereum utilities
+- Cloudflare D1 - Database
+- Cloudflare Pages - Hosting
